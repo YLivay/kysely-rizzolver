@@ -1,6 +1,6 @@
 {
 	"name": "kysely-rizzolver",
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"description": "Complex Kysely queries, maximum rizz, type-safe every time.",
 	"author": "YLivay",
 	"repository": {
