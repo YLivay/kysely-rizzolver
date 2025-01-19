@@ -3,6 +3,7 @@ src/
 .gitignore
 .prettierrc
 .prettierignore
+.tool-versions
 package-lock.json
 tsconfig-base.json
 tsconfig-cjs.json
