@@ -1,4 +1,4 @@
-export { KyselyRizzolver } from './kysely-rizzolver';
+export { KyselyRizzolver } from './kysely-rizzolver.js';
 export type {
 	AllTableFields,
 	AnyTableField,
@@ -6,7 +6,7 @@ export type {
 	KyselyRizzolverBuilderNoSchema,
 	KyDB as RizzolverDB,
 	TableName
-} from './kysely-rizzolver';
+} from './kysely-rizzolver.js';
 
 export {
 	assertIsFetchOneResult,
@@ -18,7 +18,7 @@ export {
 	newFetchOneResult,
 	newFetchOneXResult,
 	newFetchSomeResult
-} from './fetch-result';
+} from './fetch-result.js';
 export type {
 	AsFetchOneResult,
 	AsFetchOneXResult,
@@ -27,13 +27,13 @@ export type {
 	FetchOneXResult,
 	FetchResult,
 	FetchSomeResult
-} from './fetch-result';
+} from './fetch-result.js';
 
-export { newSelector } from './selector';
-export type { Selector } from './selector';
+export { newSelector } from './selector.js';
+export type { Selector } from './selector.js';
 
-export { newQueryBuilder } from './query-builder';
-export type { QueryBuilder } from './query-builder';
+export { newQueryBuilder } from './query-builder.js';
+export type { QueryBuilder } from './query-builder.js';
 
-export { newModelCollection } from './model-collection';
-export type { ModelCollection } from './model-collection';
+export { newModelCollection } from './model-collection.js';
+export type { ModelCollection } from './model-collection.js';

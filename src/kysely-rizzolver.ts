@@ -1,12 +1,12 @@
 import type { Selectable } from 'kysely';
-import { type FetchResultFactory, newFetchResultFactory } from './fetch-result-factory';
-import { type QueryBuilder, newQueryBuilder as kyNewQueryBuilder } from './query-builder';
-import { type Selector, newSelector as kyNewSelector } from './selector';
+import { type FetchResultFactory, newFetchResultFactory } from './fetch-result-factory.js';
+import { type QueryBuilder, newQueryBuilder as kyNewQueryBuilder } from './query-builder.js';
+import { type Selector, newSelector as kyNewSelector } from './selector.js';
 import {
 	type ModelCollection,
 	newModelCollection as kyNewModelCollection
-} from './model-collection';
-import type { FetchResult } from './fetch-result';
+} from './model-collection.js';
+import type { FetchResult } from './fetch-result.js';
 
 export interface KyselyRizzolverBase<DB, T extends Record<keyof DB & string, readonly string[]>> {
 	readonly fields: T;
@@ -157,9 +157,15 @@ export type KyselyRizzolverBuilderNoSchema<
 				? KyselyRizzolverBuilderNoSchema<
 						T & { [k in Last]: { model: M; columns: T[k]['columns'] } },
 						never
-					>
-				: `column '${Exclude<T[Last]['columns'][number], keyof M & string>}' defined in table() but missing from asModel()`
-			: `column '${Exclude<keyof M & string, T[Last]['columns'][number]>}' defined in asModel() but missing from table()`
+				  >
+				: `column '${Exclude<
+						T[Last]['columns'][number],
+						keyof M & string
+				  >}' defined in table() but missing from asModel()`
+			: `column '${Exclude<
+					keyof M & string,
+					T[Last]['columns'][number]
+			  >}' defined in asModel() but missing from table()`
 		: `asModel() must be called after table()`;
 	build(): KyselyRizzolver<{ [k in keyof T]: T[k]['model'] }, { [k in keyof T]: T[k]['columns'] }>;
 };
@@ -213,7 +219,9 @@ function _newKyselyRizzolverBuilderNoSchema<
 			}
 
 			return _newKyselyRizzolverBuilderNoSchema<
-				T & { [k in typeof last]: { model: M; columns: T[typeof last]['columns'] } },
+				T & {
+					[k in typeof last]: { model: M; columns: T[typeof last]['columns'] };
+				},
 				null
 			>(fields, null);
 		},
@@ -225,8 +233,12 @@ function _newKyselyRizzolverBuilderNoSchema<
 	} as unknown as KyselyRizzolverBuilderNoSchema<T, Last>;
 }
 
-export type KyDB<KY extends KyselyRizzolverBase<any, any>> =
-	KY extends KyselyRizzolverBase<infer DB, any> ? DB : never;
+export type KyDB<KY extends KyselyRizzolverBase<any, any>> = KY extends KyselyRizzolverBase<
+	infer DB,
+	any
+>
+	? DB
+	: never;
 
 export type TableName<T extends KyselyRizzolverBase<any, any>> = keyof KyDB<T> & string;
 
@@ -242,11 +254,13 @@ export type AnyTableField<
  * An array of all the known fields of a table, in a type that is compatible
  * with that table's ${@link Selectable} type.
  */
-export type AllTableFields<KY extends KyselyRizzolverBase<any, any>, Table extends TableName<KY>> =
-	KY extends KyselyRizzolverBase<any, infer T>
-		? T[Table] extends infer U
-			? U extends readonly AnyTableField<KY, Table>[]
-				? U
-				: never
+export type AllTableFields<
+	KY extends KyselyRizzolverBase<any, any>,
+	Table extends TableName<KY>
+> = KY extends KyselyRizzolverBase<any, infer T>
+	? T[Table] extends infer U
+		? U extends readonly AnyTableField<KY, Table>[]
+			? U
 			: never
-		: never;
+		: never
+	: never;

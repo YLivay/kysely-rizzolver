@@ -1,5 +1,5 @@
 import type { Selectable } from 'kysely';
-import type { ModelCollection } from './model-collection';
+import type { ModelCollection } from './model-collection.js';
 
 /**
  * A {@link FetchResult} is a result of a fetch operation. It can be one of

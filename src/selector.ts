@@ -5,8 +5,8 @@ import type {
 	KyDB,
 	KyselyRizzolverBase,
 	TableName
-} from './kysely-rizzolver';
-import type { QueryBuilder } from './query-builder';
+} from './kysely-rizzolver.js';
+import type { QueryBuilder } from './query-builder.js';
 
 /**
  * A {@link Selector} makes it easier to build select expressions for a

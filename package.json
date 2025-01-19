@@ -11,14 +11,16 @@
 	"main": "dist/cjs/index.js",
 	"module": "dist/esm/index.js",
 	"exports": {
-		"import": "./dist/esm/index.js",
-		"require": "./dist/cjs/index.js",
-		"default": "./dist/cjs/index.js"
+		".": {
+			"import": "./dist/esm/index.js",
+			"require": "./dist/cjs/index.js",
+			"default": "./dist/cjs/index.js"
+		}
 	},
 	"scripts": {
 		"clean": "rm -rf dist",
 		"build": "npm run clean && (npm run build:esm & npm run build:cjs)",
-		"build:esm": "tsc -p tsconfig.json",
+		"build:esm": "tsc -p tsconfig.json && echo '{\"type\": \"module\"}' > dist/esm/package.json",
 		"build:cjs": "tsc -p tsconfig-cjs.json"
 	},
 	"peerDependencies": {

@@ -12,8 +12,8 @@ import {
 	newFetchOneResult,
 	newFetchOneXResult,
 	newFetchSomeResult
-} from './fetch-result';
-import { type ModelCollection, newModelCollection } from './model-collection';
+} from './fetch-result.js';
+import { type ModelCollection, newModelCollection } from './model-collection.js';
 
 /**
  * A {@link FetchResultFactory} exposes variants of fetch-related functions, but

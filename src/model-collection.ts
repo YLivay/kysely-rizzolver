@@ -1,5 +1,5 @@
 import type { Selectable } from 'kysely';
-import type { QueryBuilder } from './query-builder';
+import type { QueryBuilder } from './query-builder.js';
 
 /**
  * A {@link ModelCollection} is a collection of {@link Selectable} instances,

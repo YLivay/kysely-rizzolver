@@ -6,17 +6,17 @@ import {
 	newFetchOneResult,
 	newFetchOneXResult,
 	newFetchSomeResult
-} from './fetch-result';
+} from './fetch-result.js';
 import type {
 	AllTableFields,
 	AnyTableField,
 	KyDB,
 	KyselyRizzolverBase,
 	TableName
-} from './kysely-rizzolver';
-import { type Selector, newSelector, type SelectorResult } from './selector';
-import { type ModelCollection, newModelCollection } from './model-collection';
-import type { UnionToTuple } from './type-helpers';
+} from './kysely-rizzolver.js';
+import { type Selector, newSelector, type SelectorResult } from './selector.js';
+import { type ModelCollection, newModelCollection } from './model-collection.js';
+import type { UnionToTuple } from './type-helpers.js';
 
 /**
  * {@link QueryBuilder} makes it easier to work with multiple tables in a query
@@ -342,7 +342,9 @@ type Result<
 	first:
 		| {
 				row: Row;
-				selectors: { [k in keyof T]: ReturnType<T[k]['select']>[number]['model'] };
+				selectors: {
+					[k in keyof T]: ReturnType<T[k]['select']>[number]['model'];
+				};
 		  }
 		| undefined;
 	rows: {

@@ -1,6 +1,8 @@
 node_modules/
 src/
 .gitignore
+.prettierrc
+.prettierignore
 package-lock.json
 tsconfig-base.json
 tsconfig-cjs.json
