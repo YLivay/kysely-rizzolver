@@ -74,6 +74,12 @@ export interface QueryBuilder<KY extends KyselyRizzolverBase<any, any>, T extend
 	 * ```
 	 */
 	fieldsOf<K extends keyof T>(...tableAliases: K[]): FieldsOf<T, K>;
+	field<K extends keyof T & string, F extends T[K]['input']['tableFields']>(
+		field: `${K}.${F}`
+	): {
+		value: `_${K}_${F}`;
+		from<A extends string>(alias: A): `${A}._${K}_${F}`;
+	};
 	/**
 	 * Adds a new {@link Selector} to the query builder.
 	 */
@@ -165,6 +171,16 @@ export function newQueryBuilder<KY extends KyselyRizzolverBase<any, any>>(
 			.flat() as any,
 		fieldsOf(...tableAliases: (keyof typeof selectors)[]) {
 			return tableAliases.map((alias) => selectors[alias].selectFields).flat() as any;
+		},
+		field(field: string) {
+			const [t, f] = field.split('.');
+			const alias = `_${t}_${f}` as const;
+			return {
+				value: alias,
+				from<A extends string>(a: A) {
+					return `${a}.${alias}` as const;
+				}
+			} as any;
 		},
 
 		add<
