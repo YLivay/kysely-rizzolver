@@ -1,16 +1,37 @@
-import type { Selectable } from 'kysely';
+import type { Kysely, Selectable } from 'kysely';
 import { type FetchResultFactory, newFetchResultFactory } from './fetch-result-factory.js';
-import { type QueryBuilder, newQueryBuilder as kyNewQueryBuilder } from './query-builder.js';
-import { type Selector, newSelector as kyNewSelector } from './selector.js';
+import type { FetchResult } from './fetch-result.js';
+import { FkGatherResultFactory, newFkGatherResultFactory } from './fk-gather-result-factory.js';
+import {
+	DBWithFk,
+	gatherModelFks,
+	GatherOpts,
+	MAX_FK_GATHER_DEPTH,
+	NoNullGatherOpts,
+	ValidFkDepth
+} from './fks.js';
+import { newKyselyRizzolverBuilder } from './kysely-rizzolver-builder.js';
 import {
 	type ModelCollection,
 	newModelCollection as kyNewModelCollection
 } from './model-collection.js';
-import type { FetchResult } from './fetch-result.js';
+import { type QueryBuilder, newQueryBuilder as kyNewQueryBuilder } from './query-builder.js';
+import { type Selector, newSelector as kyNewSelector } from './selector.js';
+import { WithMandatory } from './type-helpers.js';
 
-export interface KyselyRizzolverBase<DB, T extends Record<keyof DB & string, readonly string[]>> {
-	readonly fields: T;
-	readonly fetches: FetchResultFactory<DB>;
+export interface KyselyRizzolverBase<
+	DB,
+	T extends Record<keyof DB & string, readonly string[]>,
+	FKDefs extends KyselyRizzolverFKs<DB>
+> {
+	/**
+	 *
+	 */
+	readonly _types: Readonly<{
+		fields: T;
+		fkDefs: FKDefs;
+		dbfk: DBWithFk<DB, FKDefs>;
+	}>;
 }
 
 /**
@@ -24,15 +45,26 @@ export interface KyselyRizzolverBase<DB, T extends Record<keyof DB & string, rea
  * {@link KyselyRizzolver.builder|.builderForSchema()} or
  * {@link KyselyRizzolver.builderNoSchema|.builderNoSchema()}.
  */
-export class KyselyRizzolver<DB, T extends Record<keyof DB & string, readonly string[]>>
-	implements KyselyRizzolverBase<DB, T>
+export class KyselyRizzolver<
+	DB,
+	T extends Record<keyof DB & string, readonly string[]>,
+	FKDefs extends KyselyRizzolverFKs<DB>
+> implements KyselyRizzolverBase<DB, T, FKDefs>
 {
-	public readonly fields: T;
-	public readonly fetches: FetchResultFactory<DB>;
+	public readonly _types: KyselyRizzolverBase<DB, T, FKDefs>['_types'];
 
-	constructor(fields: T) {
-		this.fields = fields;
-		this.fetches = newFetchResultFactory<DB>();
+	public readonly fetchObjs: FetchResultFactory<DB>;
+	public readonly gatherObjs: FkGatherResultFactory<DB, FKDefs>;
+
+	constructor(fields: T, fks: FKDefs) {
+		this._types = Object.freeze({
+			fields,
+			fkDefs: fks,
+			dbfk: null as any
+		});
+
+		this.fetchObjs = newFetchResultFactory<DB>();
+		this.gatherObjs = newFkGatherResultFactory<DB, FKDefs>();
 	}
 
 	/**
@@ -56,19 +88,112 @@ export class KyselyRizzolver<DB, T extends Record<keyof DB & string, readonly st
 		return kyNewModelCollection<DB>();
 	}
 
+	async gatherOne<
+		Table extends keyof DB & string,
+		Opts extends WithMandatory<GatherOpts<DB, ValidFkDepth>, 'depth'>
+	>(
+		db: Kysely<DB>,
+		table: Table,
+		id: number,
+		opts: Opts
+	): Promise<ReturnType<typeof this.gatherObjs.newGatherOne<Table, Opts['depth']>>>;
+	async gatherOne<Table extends keyof DB & string>(
+		db: Kysely<DB>,
+		table: Table,
+		id: number,
+		opts?: Omit<GatherOpts<DB, any>, 'depth'>
+	): Promise<ReturnType<typeof this.gatherObjs.newGatherOne<Table, typeof MAX_FK_GATHER_DEPTH>>>;
+	async gatherOne<Table extends keyof DB & string>(
+		db: Kysely<DB>,
+		table: Table,
+		id: number,
+		opts?: GatherOpts<DB, ValidFkDepth>
+	) {
+		const depth = opts?.depth ?? MAX_FK_GATHER_DEPTH;
+		const modelCollection = opts?.modelCollection ?? this.newModelCollection();
+
+		const gather = await gatherModelFks(this, db, table, [id], opts);
+		const result = gather[0] ?? undefined;
+
+		return this.gatherObjs.newGatherOne(table, depth, result, modelCollection);
+	}
+
+	async gatherOneX<
+		Table extends keyof DB & string,
+		Opts extends WithMandatory<GatherOpts<DB, ValidFkDepth>, 'depth'>
+	>(
+		db: Kysely<DB>,
+		table: Table,
+		id: number,
+		opts: Opts
+	): Promise<ReturnType<typeof this.gatherObjs.newGatherOneX<Table, Opts['depth']>>>;
+	async gatherOneX<Table extends keyof DB & string>(
+		db: Kysely<DB>,
+		table: Table,
+		id: number,
+		opts?: Omit<GatherOpts<DB, any>, 'depth'>
+	): Promise<ReturnType<typeof this.gatherObjs.newGatherOneX<Table, typeof MAX_FK_GATHER_DEPTH>>>;
+	async gatherOneX<Table extends keyof DB & string>(
+		db: Kysely<DB>,
+		table: Table,
+		id: number,
+		opts?: GatherOpts<DB, ValidFkDepth>
+	) {
+		const depth = opts?.depth ?? MAX_FK_GATHER_DEPTH;
+		const modelCollection = opts?.modelCollection ?? this.newModelCollection();
+
+		const gather = await gatherModelFks(this, db, table, [id], opts);
+		const result = gather[0] ?? undefined;
+
+		return this.gatherObjs.newGatherOneX(table, depth, result, modelCollection);
+	}
+
+	async gatherSome<
+		Table extends keyof DB & string,
+		Opts extends WithMandatory<NoNullGatherOpts<DB, ValidFkDepth>, 'depth'>
+	>(
+		db: Kysely<DB>,
+		table: Table,
+		ids: number[],
+		opts: Opts
+	): Promise<ReturnType<typeof this.gatherObjs.newGatherSome<Table, Opts['depth']>>>;
+	async gatherSome<Table extends keyof DB & string>(
+		db: Kysely<DB>,
+		table: Table,
+		ids: number[],
+		opts?: Omit<NoNullGatherOpts<DB, any>, 'depth'>
+	): Promise<ReturnType<typeof this.gatherObjs.newGatherSome<Table, typeof MAX_FK_GATHER_DEPTH>>>;
+	async gatherSome<Table extends keyof DB & string>(
+		db: Kysely<DB>,
+		table: Table,
+		ids: number[],
+		opts?: NoNullGatherOpts<DB, ValidFkDepth>
+	) {
+		const depth = opts?.depth ?? MAX_FK_GATHER_DEPTH;
+		const modelCollection = opts?.modelCollection ?? this.newModelCollection();
+
+		const gather = await gatherModelFks(this, db, table, ids, opts);
+		const result = gather.filter((r) => !!r);
+		if (result.length < gather.length) {
+			throw new Error('Expected no nulls in fkGatherSome result');
+		}
+
+		return this.gatherObjs.newGatherSome(table, depth, result, modelCollection);
+	}
+
 	/**
 	 * Starts building a new {@link KyselyRizzolver} using a builder pattern for
 	 * a schema.
 	 *
-	 * Call {@link KyselyRizzolverBuilderForSchema.table|.table()} for each
+	 * Call {@link KyselyRizzolverBuilder.table|.table()} for each
 	 * table that exists on the `DB` type parameter with all of their column
 	 * names as a const array. After all tables have been added, call
-	 * {@link KyselyRizzolverBuilderForSchema.build|.build()} to get a new
+	 * {@link KyselyRizzolverBuilder.build|.build()} to get a new
 	 * {@link KyselyRizzolver} instance.
 	 *
 	 * Example:
 	 * ```
-	 * const rizzolver = KyselyRizzolver.builderForSchema<DB>()
+	 * const rizzolver = KyselyRizzolver.builder<DB>()
 	 *   .table('user', ['id', 'name', 'email'] as const)
 	 *   .table('post', ['id', 'title', 'content', 'authorId'] as const)
 	 *   .build();
@@ -76,191 +201,78 @@ export class KyselyRizzolver<DB, T extends Record<keyof DB & string, readonly st
 	 *
 	 * Note: The `as const` assertion is necessary for correct type inference.
 	 */
-	static builderForSchema<DB>() {
-		return _newKyselyRizzolverBuilderForSchema<DB, {}>({});
-	}
-
-	/**
-	 * Starts building a new {@link KyselyRizzolver} using a builder pattern
-	 * without a schema.
-	 *
-	 * Call {@link KyselyRizzolverBuilderNoSchema.table|.table()} for each
-	 * table with all of their column names as a const array.
-	 *
-	 * Example:
-	 * ```
-	 * const rizzolver = KyselyRizzolver.builder()
-	 *     .table('user', ['id', 'name', 'email'] as const) // note `as const` is necessary
-	 *     .table('post', ['id', 'title', 'content', 'authorId'] as const)
-	 *     .build();
-	 * ```
-	 *
-	 * Since this version of builder is schemaless, it cannot infer the value
-	 * types for the columns. The `user` type will be `{ id: unknown, name:
-	 * unknown, email: unknown }`.
-	 *
-	 * You may call
-	 * {@link KyselyRizzolverBuilderNoSchema.asModel|.asModel\<M\>()}
-	 * immediately after the .table() call to provide the types, where `M` is an
-	 * type like `{ column1: type1, column2: type2, ... }`.
-	 *
-	 * Example:
-	 * ```
-	 * const rizzolver = KyselyRizzolver.builder()
-	 *     .table('user', ['id', 'name', 'email'] as const)
-	 *     .asModel<{id: number, name: string, email: string}>()
-	 *     .table('post', ['id', 'title', 'content', 'authorId'] as const)
-	 *     .asModel<{id: number, title: string, content: string, authorId: number}>()
-	 *     .build();
-	 * ```
-	 *
-	 * p.s. if your .table() and .asModel() columns differ, it will let you know
-	 * at compile time ;)
-	 *
-	 * Once all tables have been added, call
-	 * {@link KyselyRizzolverBuilderNoSchema.build|.build()} to get a new
-	 * {@link KyselyRizzolver} instance.
-	 */
-	static builderNoSchema() {
-		return _newKyselyRizzolverBuilderNoSchema({}, null);
+	static builder<DB>() {
+		return newKyselyRizzolverBuilder<DB, {}>({});
 	}
 }
 
-export type KyselyRizzolverBuilderForSchema<
-	DB,
-	T extends Partial<Record<keyof DB & string, readonly string[]>>
-> = {
-	table<K extends Exclude<keyof DB & string, keyof T>, U extends readonly (keyof DB[K])[]>(
-		name: K,
-		fields: U &
-			([keyof DB[K]] extends [U[number]]
-				? unknown
-				: `Missing key: ${Exclude<keyof DB[K] & string, U[number]>}`)
-	): KyselyRizzolverBuilderForSchema<DB, T & { [key in K]: U }>;
-	build(): T extends Record<keyof DB & string, readonly string[]> ? KyselyRizzolver<DB, T> : never;
+/**
+ * The shape of the foreign key definitions on a {@link KyselyRizzolverBase}.
+ */
+export type KyselyRizzolverFKs<DB> = {
+	[table in keyof DB & string]?: {
+		[fkName: string]: {
+			myField: string;
+			otherTable: keyof DB & string;
+			otherField: string;
+			isNullable: boolean;
+		};
+	};
 };
 
-export type KyselyRizzolverBuilderNoSchema<
-	T extends Record<string, { model: any; columns: readonly string[] }>,
-	Last extends keyof T | null
-> = {
-	table<K extends string, U extends readonly string[]>(
-		name: K,
-		fields: U
-	): KyselyRizzolverBuilderNoSchema<
-		T & { [k in K]: { model: Record<U[number], unknown>; columns: U } },
-		K
-	>;
-	asModel<M>(): Last extends keyof T
-		? keyof M extends T[Last]['columns'][number]
-			? T[Last]['columns'][number] extends keyof M
-				? KyselyRizzolverBuilderNoSchema<
-						T & { [k in Last]: { model: M; columns: T[k]['columns'] } },
-						never
-				  >
-				: `column '${Exclude<
-						T[Last]['columns'][number],
-						keyof M & string
-				  >}' defined in table() but missing from asModel()`
-			: `column '${Exclude<
-					keyof M & string,
-					T[Last]['columns'][number]
-			  >}' defined in asModel() but missing from table()`
-		: `asModel() must be called after table()`;
-	build(): KyselyRizzolver<{ [k in keyof T]: T[k]['model'] }, { [k in keyof T]: T[k]['columns'] }>;
-};
-
-function _newKyselyRizzolverBuilderForSchema<
-	DB,
-	T extends Partial<Record<keyof DB & string, readonly string[]>>
->(fields: T) {
-	return {
-		table<K extends keyof DB & string, U extends readonly (keyof DB[K])[]>(
-			tableName: K,
-			tableFields: U &
-				([keyof DB[K]] extends [U[number]]
-					? unknown
-					: `Missing key: ${Exclude<keyof DB[K] & string, U[number]>}`)
-		) {
-			return _newKyselyRizzolverBuilderForSchema<DB, T & { [key in K]: typeof tableFields }>({
-				...fields,
-				[tableName]: tableFields
-			}) as any;
-		},
-		build() {
-			return new KyselyRizzolver(fields);
-		}
-	} as unknown as KyselyRizzolverBuilderForSchema<DB, T>;
-}
-
-function _newKyselyRizzolverBuilderNoSchema<
-	T extends Record<string, { model: any; columns: readonly string[] }>,
-	Last extends keyof T | null
->(fields: T, last: Last) {
-	return {
-		table<K extends string, U extends readonly string[]>(tableName: K, tableFields: U) {
-			return _newKyselyRizzolverBuilderNoSchema<
-				T & { [k in K]: { model: Record<U[number], unknown>; columns: U } },
-				K
-			>(
-				{
-					...fields,
-					[tableName]: {
-						model: null as any as Record<U[number], unknown>,
-						columns: tableFields
-					}
-				},
-				tableName
-			);
-		},
-		asModel<M>() {
-			if (!last) {
-				throw new Error('asModel() must be called after table()');
-			}
-
-			return _newKyselyRizzolverBuilderNoSchema<
-				T & {
-					[k in typeof last]: { model: M; columns: T[typeof last]['columns'] };
-				},
-				null
-			>(fields, null);
-		},
-		build() {
-			return new KyselyRizzolver(
-				Object.fromEntries(Object.entries(fields).map((entry) => [entry[0], entry[1].columns]))
-			);
-		}
-	} as unknown as KyselyRizzolverBuilderNoSchema<T, Last>;
-}
-
-export type KyDB<KY extends KyselyRizzolverBase<any, any>> = KY extends KyselyRizzolverBase<
+/**
+ * Extracts the `DB` type from a {@link KyselyRizzolverBase}.
+ */
+export type KyDB<KY extends KyselyRizzolverBase<any, any, any>> = KY extends KyselyRizzolverBase<
 	infer DB,
+	any,
 	any
 >
 	? DB
 	: never;
 
-export type TableName<T extends KyselyRizzolverBase<any, any>> = keyof KyDB<T> & string;
+/**
+ * Variant of {@link TableName} that takes a {@link KyselyRizzolverBase} instead
+ * of a `DB` type.
+ */
+export type KyTableName<T extends KyselyRizzolverBase<any, any, any>> = keyof KyDB<T> & string;
+
+/**
+ * Variant of {@link AnyTableField} that takes a {@link KyselyRizzolverBase}
+ * instead of a `DB` type.
+ */
+export type KyAnyTableField<
+	KY extends KyselyRizzolverBase<any, any, any>,
+	Table extends KyTableName<KY>
+> = keyof KyDB<KY>[Table] & string;
+
+/**
+ * Variant of {@link AllTableFields} that takes a {@link KyselyRizzolverBase}
+ * instead of a `DB` type.
+ */
+export type KyAllTableFields<
+	KY extends KyselyRizzolverBase<any, any, any>,
+	Table extends KyTableName<KY>
+> = KY extends KyselyRizzolverBase<any, infer T, any>
+	? T[Table] extends infer U
+		? U extends readonly KyAnyTableField<KY, Table>[]
+			? U
+			: never
+		: never
+	: never;
+
+/**
+ * A union of all the known table names of a database.
+ */
+export type TableName<DB> = keyof DB & string;
 
 /**
  * A union of all the known fields of a table.
  */
-export type AnyTableField<
-	KY extends KyselyRizzolverBase<any, any>,
-	Table extends TableName<KY>
-> = keyof KyDB<KY>[Table] & string;
+export type AnyTableField<DB, Table extends TableName<DB>> = keyof DB[Table] & string;
 
 /**
  * An array of all the known fields of a table, in a type that is compatible
  * with that table's ${@link Selectable} type.
  */
-export type AllTableFields<
-	KY extends KyselyRizzolverBase<any, any>,
-	Table extends TableName<KY>
-> = KY extends KyselyRizzolverBase<any, infer T>
-	? T[Table] extends infer U
-		? U extends readonly AnyTableField<KY, Table>[]
-			? U
-			: never
-		: never
-	: never;
+export type AllTableFields<DB, Table extends TableName<DB>> = AnyTableField<DB, Table>[];

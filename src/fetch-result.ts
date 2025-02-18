@@ -1,5 +1,5 @@
 import type { Selectable } from 'kysely';
-import type { ModelCollection } from './model-collection.js';
+import { newModelCollection, type ModelCollection } from './model-collection.js';
 
 /**
  * A {@link FetchResult} is a result of a fetch operation. It can be one of
@@ -11,10 +11,11 @@ import type { ModelCollection } from './model-collection.js';
  * - {@link FetchSomeResult} - A result of a fetch operation that is expected to
  *   return any number of rows.
  */
-export type FetchResult<DB, T extends keyof DB & string, R extends Partial<Selectable<DB[T]>>> =
-	| FetchOneResult<DB, T, R>
-	| FetchOneXResult<DB, T, R>
-	| FetchSomeResult<DB, T, R>;
+export type FetchResult<
+	DB,
+	T extends keyof DB & string,
+	R extends Partial<Selectable<DB[T]>> = Selectable<DB[T]>
+> = FetchOneResult<DB, T, R> | FetchOneXResult<DB, T, R> | FetchSomeResult<DB, T, R>;
 
 /**
  * A {@link FetchOneResult} is a result of a fetch operation that is expected to
@@ -23,12 +24,15 @@ export type FetchResult<DB, T extends keyof DB & string, R extends Partial<Selec
 export type FetchOneResult<
 	DB,
 	T extends keyof DB & string,
-	R extends Partial<Selectable<DB[T]>> | undefined
+	R extends Partial<Selectable<DB[T]>> = Selectable<DB[T]>
 > = {
 	fetchType: 'fetchOne';
 	table: T;
 	result: R | undefined;
-	models?: ModelCollection<DB>;
+	/**
+	 * The {@link ModelCollection} that contains the fetched models.
+	 */
+	models: ModelCollection<DB>;
 	/**
 	 * Returns this result as a {@link FetchOneXResult}.
 	 *
@@ -44,12 +48,12 @@ export type FetchOneResult<
 export type FetchOneXResult<
 	DB,
 	T extends keyof DB & string,
-	R extends Partial<Selectable<DB[T]>>
+	R extends Partial<Selectable<DB[T]>> = Selectable<DB[T]>
 > = {
 	fetchType: 'fetchOne';
 	table: T;
 	result: R;
-	models?: ModelCollection<DB>;
+	models: ModelCollection<DB>;
 	/**
 	 * Returns self. This is a no-op, but it's here to make it possible to
 	 * cast this object back to a {@link FetchOneXResult}.
@@ -64,12 +68,12 @@ export type FetchOneXResult<
 export type FetchSomeResult<
 	DB,
 	T extends keyof DB & string,
-	R extends Partial<Selectable<DB[T]>>
+	R extends Partial<Selectable<DB[T]>> = Selectable<DB[T]>
 > = {
 	fetchType: 'fetchSome';
 	table: T;
 	result: R[];
-	models?: ModelCollection<DB>;
+	models: ModelCollection<DB>;
 };
 
 /**
@@ -99,6 +103,8 @@ export function newFetchOneResult<
 	R extends Partial<Selectable<DB[T]>>
 >(table: T, result: R | undefined, models?: ModelCollection<DB>) {
 	const ref = { value: null as any as FetchOneXResult<DB, T, R> };
+
+	models ??= newModelCollection<DB>();
 
 	const me: FetchOneResult<DB, T, R> = {
 		fetchType: 'fetchOne' as const,
@@ -135,6 +141,8 @@ export function newFetchOneXResult<
 		throw new Error('Expected a fetchOneX result');
 	}
 
+	models ??= newModelCollection<DB>();
+
 	const ref = { value: null as any as FetchOneXResult<DB, T, R> };
 
 	const me: FetchOneXResult<DB, T, R> = {
@@ -160,6 +168,8 @@ export function newFetchSomeResult<
 	T extends keyof DB & string,
 	R extends Partial<Selectable<DB[T]>>
 >(table: T, result: R[], models?: ModelCollection<DB>) {
+	models ??= newModelCollection<DB>();
+
 	return {
 		fetchType: 'fetchSome' as const,
 		table,

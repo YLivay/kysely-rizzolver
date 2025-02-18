@@ -22,7 +22,14 @@ export type ModelCollection<DB> = {
 		table: Table,
 		selectable?: Selectable<DB[Table]>
 	): ModelCollection<DB>;
-	get collection(): Data<DB>;
+	addCollection(collection: ModelCollection<DB>): ModelCollection<DB>;
+	get(): Data<DB>;
+	get<Table extends keyof DB & string>(table: Table): Record<number, Selectable<DB[Table]>>;
+	get<Table extends keyof DB & string>(table: Table, id: number): Selectable<DB[Table]> | undefined;
+	getX<Table extends keyof DB & string>(
+		table: Table,
+		id: number
+	): Record<number, Selectable<DB[Table]>>;
 };
 
 export function newModelCollection<DB>(init: Data<DB> = {}) {
@@ -47,8 +54,33 @@ export function newModelCollection<DB>(init: Data<DB> = {}) {
 			return this;
 		},
 
-		get collection() {
-			return collection;
+		addCollection(collection: ModelCollection<DB>) {
+			for (const [table, entries] of Object.entries(collection.get())) {
+				for (const [id, model] of Object.entries(entries as any)) {
+					this.add(table as any, model as any);
+				}
+			}
+			return this;
+		},
+
+		get<Table extends keyof DB & string>(table?: Table, id?: number) {
+			if (!table) {
+				return collection;
+			}
+
+			if (!id) {
+				return collection[table] ?? {};
+			}
+
+			return collection[table]?.[id];
+		},
+
+		getX<Table extends keyof DB & string>(table: Table, id: number) {
+			const result = this.get(table, id);
+			if (!result) {
+				throw new Error(`Model not found in ModelCollection for table ${table} with id ${id}`);
+			}
+			return result;
 		}
 	} as ModelCollection<DB>;
 }

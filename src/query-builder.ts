@@ -8,13 +8,13 @@ import {
 	newFetchSomeResult
 } from './fetch-result.js';
 import type {
-	AllTableFields,
-	AnyTableField,
+	KyAllTableFields,
+	KyAnyTableField,
 	KyDB,
 	KyselyRizzolverBase,
-	TableName
+	KyTableName
 } from './kysely-rizzolver.js';
-import { type Selector, newSelector, type SelectorResult } from './selector.js';
+import { type Selector, newSelector, type SelectorResult, AnySelector } from './selector.js';
 import { type ModelCollection, newModelCollection } from './model-collection.js';
 import type { UnionToTuple } from './type-helpers.js';
 
@@ -27,11 +27,12 @@ import type { UnionToTuple } from './type-helpers.js';
  * method, followed by a call to {@link QueryBuilder.run} to parse the results
  * of the query using a simple builder pattern.
  */
-export interface QueryBuilder<KY extends KyselyRizzolverBase<any, any>, T extends Data<KY>> {
+export interface QueryBuilder<KY extends KyselyRizzolverBase<any, any, any>, T extends Data<KY>> {
 	/**
 	 * The record of {@link Selector} this query builder has, keyed by their alias.
 	 */
 	selectors: T;
+	numSelectors: UnionToTuple<keyof T>['length'];
 	/**
 	 * Given a {@link Selector} alias `k`, Gets a `"table as alias"` expression
 	 * for that selector.
@@ -52,7 +53,7 @@ export interface QueryBuilder<KY extends KyselyRizzolverBase<any, any>, T extend
 	 * Gets a const array of all the fields of all the {@link Selector}s this
 	 * query builder has. The order is arbitrary and should not be relied upon.
 	 */
-	allFields: FieldsOf<T, keyof T>;
+	allFields(): FieldsOf<T, keyof T>;
 	/**
 	 * Given one of more {@link Selector} aliases, gets an array of
 	 * `"table.field as alias"` expressions for all of their fields.
@@ -84,9 +85,9 @@ export interface QueryBuilder<KY extends KyselyRizzolverBase<any, any>, T extend
 	 * Adds a new {@link Selector} to the query builder.
 	 */
 	add<
-		Table extends TableName<KY>,
+		Table extends KyTableName<KY>,
 		Alias extends string,
-		Keys extends readonly AnyTableField<KY, Table>[] = AllTableFields<KY, Table>
+		Keys extends readonly KyAnyTableField<KY, Table>[] = KyAllTableFields<KY, Table>
 	>(
 		selector: Selector<KY, Table, Alias, Keys>
 	): MoreData<KY, T, Table, Alias, Keys>;
@@ -94,9 +95,9 @@ export interface QueryBuilder<KY extends KyselyRizzolverBase<any, any>, T extend
 	 * Adds a new {@link Selector} to the query builder.
 	 */
 	add<
-		Table extends TableName<KY>,
+		Table extends KyTableName<KY>,
 		Alias extends string,
-		Keys extends readonly AnyTableField<KY, Table>[] = AllTableFields<KY, Table>
+		Keys extends readonly KyAnyTableField<KY, Table>[] = KyAllTableFields<KY, Table>
 	>(
 		table: Table,
 		alias: Alias,
@@ -116,7 +117,7 @@ export interface QueryBuilder<KY extends KyselyRizzolverBase<any, any>, T extend
 	 *         db
 	 *             .selectFrom(qb.table('u'))
 	 *             .leftJoin(qb.table('a'), (join) => join.onRef('u.address_id', '=', 'a.id'))
-	 *             .select(qb.allFields)
+	 *             .select(qb.allFields())
 	 *             .execute()
 	 *     );
 	 *
@@ -156,19 +157,29 @@ export interface QueryBuilder<KY extends KyselyRizzolverBase<any, any>, T extend
 	): DeferredResult<KY, T, Row>;
 }
 
-export function newQueryBuilder<KY extends KyselyRizzolverBase<any, any>>(
+export type AnyQueryBuilder = QueryBuilder<
+	KyselyRizzolverBase<any, any, any>,
+	Record<string, AnySelector<any, string, string, string[]>>
+>;
+
+export function newQueryBuilder<KY extends KyselyRizzolverBase<any, any, any>>(
 	rizzolver: KY
 ): QueryBuilder<KY, {}> {
 	const selectors: Data<KY> = {};
 
 	return {
 		selectors,
+		get numSelectors() {
+			return Object.keys(selectors).length as any;
+		},
 		table<K extends keyof typeof selectors>(tableAlias: K) {
 			return selectors[tableAlias].selectTable as any;
 		},
-		allFields: Object.values(selectors)
-			.map((selector) => selector.selectFields)
-			.flat() as any,
+		allFields() {
+			return Object.values(selectors)
+				.map((selector) => selector.selectFields)
+				.flat() as any;
+		},
 		fieldsOf(...tableAliases: (keyof typeof selectors)[]) {
 			return tableAliases.map((alias) => selectors[alias].selectFields).flat() as any;
 		},
@@ -184,9 +195,9 @@ export function newQueryBuilder<KY extends KyselyRizzolverBase<any, any>>(
 		},
 
 		add<
-			Table extends TableName<KY>,
+			Table extends KyTableName<KY>,
 			Alias extends string,
-			Keys extends readonly AnyTableField<KY, Table>[] = AllTableFields<KY, Table>
+			Keys extends readonly KyAnyTableField<KY, Table>[] = KyAllTableFields<KY, Table>
 		>(selectorOrTable: Table | Selector<KY, Table, Alias, Keys>, alias?: Alias, keys?: Keys) {
 			let selector: Selector<KY, Table, Alias, Keys>;
 			if (typeof selectorOrTable === 'string') {
@@ -197,7 +208,7 @@ export function newQueryBuilder<KY extends KyselyRizzolverBase<any, any>>(
 					rizzolver,
 					selectorOrTable,
 					alias,
-					(keys ?? rizzolver.fields[selectorOrTable]) as Keys
+					(keys ?? rizzolver._types.fields[selectorOrTable]) as Keys
 				);
 			} else {
 				if (alias || keys) {
@@ -287,20 +298,20 @@ export function newQueryBuilder<KY extends KyselyRizzolverBase<any, any>>(
 	};
 }
 
-type Data<KY extends KyselyRizzolverBase<any, any>> = {
+type Data<KY extends KyselyRizzolverBase<any, any, any>> = {
 	[alias: string]: Selector<KY, any, string, any>;
 };
 
 type MoreData<
-	KY extends KyselyRizzolverBase<any, any>,
+	KY extends KyselyRizzolverBase<any, any, any>,
 	T extends Data<KY>,
-	Table extends TableName<KY>,
+	Table extends KyTableName<KY>,
 	A extends string,
-	K extends readonly AnyTableField<KY, Table>[] = AllTableFields<KY, Table>
+	K extends readonly KyAnyTableField<KY, Table>[] = KyAllTableFields<KY, Table>
 > = QueryBuilder<KY, T & { [k in A]: Selector<KY, Table, A, K> }>;
 
 interface DeferredResult<
-	KY extends KyselyRizzolverBase<any, any>,
+	KY extends KyselyRizzolverBase<any, any, any>,
 	T extends Data<KY>,
 	Row extends Record<string, unknown>
 > extends Promise<Result<KY, T, Row>> {
@@ -351,7 +362,7 @@ interface DeferredResult<
 }
 
 type Result<
-	KY extends KyselyRizzolverBase<any, any>,
+	KY extends KyselyRizzolverBase<any, any, any>,
 	T extends Data<KY>,
 	Row extends Record<string, unknown>
 > = {
