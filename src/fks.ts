@@ -4,7 +4,6 @@ import type {
 	Kysely,
 	OperandExpression,
 	Selectable,
-	SelectQueryBuilder,
 	SelectType
 } from 'kysely';
 import type { FKDefsEntry } from './kysely-rizzolver-fk-builder.js';
@@ -167,14 +166,6 @@ export type NoNullGatherOpts<DB, Depth extends ValidFkDepth> = Omit<
 	'onInvalidModel'
 > & { onInvalidModel?: 'omit' | 'throw' | 'keep' };
 
-let namelessRizzolver: KyselyRizzolver<any, any, any> = null as any;
-function getNamelessRizzolver(): KyselyRizzolver<any, any, any> {
-	if (!namelessRizzolver) {
-		namelessRizzolver = KyselyRizzolver.builder().build();
-	}
-	return namelessRizzolver;
-}
-
 export type GatherWhereExpression<DB, Table extends keyof DB & string> = (
 	eb: ExpressionBuilder<Pick<DB, Table>, Table>
 ) => OperandExpression<any>;
@@ -197,9 +188,9 @@ export async function gatherModelFks<
 	const modelCollection = opts.modelCollection ?? null;
 
 	const fkDefs = rizzolver._types.fkDefs;
-	let qb = getNamelessRizzolver()
+	let qb = (rizzolver as unknown as KyselyRizzolver<any, any, any>)
 		.newQueryBuilder()
-		.add(table, table as string) as AnyQueryBuilder;
+		.add(table, table as any, rizzolver._types.fields[table]) as AnyQueryBuilder;
 
 	const gatherItems: GatherItem[] = [];
 	qb = _collectGatherData(fkDefs, table, qb, depth, gatherItems);
@@ -214,7 +205,7 @@ export async function gatherModelFks<
 	const collection = rizzult.models;
 	modelCollection?.addCollection(collection);
 	const result = rizzult.rows.map((row) => {
-		const baseModel = row.selectors.fk0!;
+		const baseModel = row.selectors[table]!;
 		const gatheredModel = _baseToGatheredModel(
 			fkDefs,
 			table,
