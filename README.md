@@ -4,19 +4,21 @@ Complex Kysely queries, maximum rizz, type-safe every time.
 
 ## Overview
 
-Kysely Rizzolver is a utility library for building complex, type-safe queries.
+Kysely Rizzolver is a utility library for building complex, type-safe queries
+across multiple tables with Kysely.
 
-There are already a bunch of [awesome
-tools](https://github.com/kysely-org/awesome-kysely) for working with Kysely out
+There are already a bunch of [awesome tools](https://github.com/kysely-org/awesome-kysely)
+for working with Kysely out
 there, but none strike the balance I'm looking for:
-- [kysely-orm](https://github.com/seeeden/kysely-orm) is a full-fledged ORM.
-  It's a really cool project, but like all ORMs it works until it doesn't. If
-  you need fine control over your queries, it gets very cumbersome.
+- [kysely-orm](https://github.com/seeden/kysely-orm) is a full-fledged ORM. It's
+  a really cool project, but like all ORMs it works until it doesn't. If you
+  need fine control over your queries, it gets very cumbersome.
 - [kysely-mapper](https://github.com/jtlapp/kysely-mapper) is a bit more
-  lightweight than an ORM, but it still wraps Kysely with a "hatch" to an
-  underlying Kysely instance. It is also quite verbose and rigid in my opinion.
+  lightweight than an ORM, but it's focus is still on mapping tables to other
+  classes. It doesn't offer much value in the way of writing complex queries, or
+  working with multiple tables.
 
-Kysely Rizzolver in constast, works *with* Kysely. It does not replace, wrap,
+Kysely Rizzolver in constast, works *inside* Kysely. It does not replace, wrap,
 abstract or hide it and can be incrementally added to an existing Kysely
 project.
 
@@ -44,7 +46,9 @@ const rizzolver = KyselyRizzolver.builderNoSchema()
     .build();
 ```
 
-or if you have a schema, for example from [kysely-codegen](https://github.com/RobinBlomberg/kysely-codegen), you can use it like this:
+or if you have a schema, for example from
+[kysely-codegen](https://github.com/RobinBlomberg/kysely-codegen), you can use
+it like this:
 
 ```typescript
 import { KyselyRizzolver } from 'kysely-rizzolver';

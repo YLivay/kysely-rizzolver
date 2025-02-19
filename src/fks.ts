@@ -1,4 +1,12 @@
-import type { JoinCallbackExpression, Kysely, Selectable, SelectType } from 'kysely';
+import type {
+	ExpressionBuilder,
+	JoinCallbackExpression,
+	Kysely,
+	OperandExpression,
+	Selectable,
+	SelectQueryBuilder,
+	SelectType
+} from 'kysely';
 import type { FKDefsEntry } from './kysely-rizzolver-fk-builder.js';
 import {
 	KyselyRizzolver,
@@ -63,7 +71,7 @@ export class ModelFkGatherError extends Error {
  */
 export type ModelFkBare<DBFk, Table extends keyof DBFk & string> =
 	// new line :D
-	{ __fkDepth: 0 } & Selectable<OmitFks<DBFk[Table]>>;
+	{ __fkDepth: 0; __table: Table } & Selectable<OmitFks<DBFk[Table]>>;
 
 /**
  * A model whose FKs fields have been gathered up to a specific depth.
@@ -74,7 +82,7 @@ export type ModelFkGathered<
 	Depth extends Exclude<ValidFkDepth, 0>
 > =
 	// new line :D
-	{ __fkDepth: Depth } & {
+	{ __fkDepth: Depth; __table: Table } & {
 		[k in keyof DBFk[Table]]: DBFk[Table][k] extends infer U
 			? U extends Fk<any, any, infer UU, infer NN>
 				? MaybeNullable<ModelFkInstance<DBFk, UU & keyof DBFk, NextDepth[Depth]>, NN>
@@ -86,13 +94,23 @@ export type ModelFkInstance<
 	DBFk,
 	Table extends keyof DBFk & string,
 	Depth extends ValidFkDepth
-> = Depth extends 0
-	? ModelFkBare<DBFk, Table>
-	: Depth extends Exclude<ValidFkDepth, 0>
-	? ModelFkGathered<DBFk, Table, Depth>
-	: never;
+> = Depth extends 0 ? ModelFkBare<DBFk, Table> : ModelFkGathered<DBFk, Table, Exclude<Depth, 0>>;
 
 type MaybeNullable<T, Nullable extends boolean> = Nullable extends true ? T | null : T;
+
+export type ModelFkExtractSelectable<DB, Model> = Model extends ModelFkInstance<
+	any,
+	infer Table,
+	any
+>
+	? Table extends keyof DB & string
+		? Selectable<DB[Table]>
+		: never
+	: Model extends undefined
+	? undefined
+	: Model extends null
+	? null
+	: never;
 
 /**
  * A database schema `DB` with FK fields populated according to `FKDefs`.
@@ -157,6 +175,10 @@ function getNamelessRizzolver(): KyselyRizzolver<any, any, any> {
 	return namelessRizzolver;
 }
 
+export type GatherWhereExpression<DB, Table extends keyof DB & string> = (
+	eb: ExpressionBuilder<Pick<DB, Table>, Table>
+) => OperandExpression<any>;
+
 export async function gatherModelFks<
 	DB,
 	FKDefs extends KyselyRizzolverFKs<DB>,
@@ -167,7 +189,7 @@ export async function gatherModelFks<
 	rizzolver: KY,
 	dbInstance: Kysely<DB>,
 	table: Table,
-	ids: number[],
+	where: GatherWhereExpression<DB, Table>,
 	opts: GatherOpts<DB, Depth> = {}
 ): Promise<(ModelFkInstance<DBWithFk<DB, FKDefs>, Table, Depth> | null)[]> {
 	const depth = opts.depth ?? MAX_FK_GATHER_DEPTH;
@@ -175,16 +197,18 @@ export async function gatherModelFks<
 	const modelCollection = opts.modelCollection ?? null;
 
 	const fkDefs = rizzolver._types.fkDefs;
-	let qb = getNamelessRizzolver().newQueryBuilder().add(table, `fk0`) as AnyQueryBuilder;
+	let qb = getNamelessRizzolver()
+		.newQueryBuilder()
+		.add(table, table as string) as AnyQueryBuilder;
 
 	const gatherItems: GatherItem[] = [];
 	qb = _collectGatherData(fkDefs, table, qb, depth, gatherItems);
 
-	let ky = dbInstance.selectFrom(qb.table('fk0') as any);
+	let ky = dbInstance.selectFrom(table);
 	for (const gatherItem of gatherItems) {
 		ky = ky.leftJoin(gatherItem.tableAlias as any, gatherItem.join) as any;
 	}
-	ky = ky.select(qb.allFields()).where('fk0.id' as any, 'in', ids);
+	ky = ky.select(qb.allFields()).where((eb) => where(eb as any));
 	const rizzult = await qb.run(() => ky.execute());
 
 	const collection = rizzult.models;
@@ -225,7 +249,7 @@ function _collectGatherData(
 		return qb;
 	}
 
-	const myAlias = `fk${qb.numSelectors - 1}`;
+	const myAlias = qb.numSelectors == 1 ? table : `fk${qb.numSelectors - 1}`;
 	const myFkDefs = fkDefs[table] ?? {};
 	for (const fkDef of Object.values(myFkDefs)) {
 		const otherAlias = `fk${qb.numSelectors}`;
@@ -253,7 +277,7 @@ function _baseToGatheredModel(
 	onInvalidModel: NonNullable<GatherOpts<any, any>['onInvalidModel']>
 ): ModelFkInstance<any, any, any> | null {
 	if (depth <= 0) {
-		return { __fkDepth: 0, ...baseModel };
+		return { __fkDepth: 0, __table: table, ...baseModel };
 	}
 
 	const myId = baseModel['id'];
@@ -261,7 +285,7 @@ function _baseToGatheredModel(
 		throw new Error('Expected model to have a valid id');
 	}
 
-	const gatheredModel: any = { __fkDepth: depth, ...baseModel };
+	const gatheredModel: any = { __fkDepth: depth, __table: table, ...baseModel };
 	const myFkDefs = fkDefs[table] ?? {};
 	for (const [fkName, fkDef] of Object.entries(myFkDefs)) {
 		const fkValue = baseModel[fkDef.myField];

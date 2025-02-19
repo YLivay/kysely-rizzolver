@@ -6,7 +6,9 @@ import {
 	DBWithFk,
 	gatherModelFks,
 	GatherOpts,
+	GatherWhereExpression,
 	MAX_FK_GATHER_DEPTH,
+	ModelFkInstance,
 	NoNullGatherOpts,
 	ValidFkDepth
 } from './fks.js';
@@ -24,9 +26,6 @@ export interface KyselyRizzolverBase<
 	T extends Record<keyof DB & string, readonly string[]>,
 	FKDefs extends KyselyRizzolverFKs<DB>
 > {
-	/**
-	 *
-	 */
 	readonly _types: Readonly<{
 		fields: T;
 		fkDefs: FKDefs;
@@ -48,15 +47,17 @@ export interface KyselyRizzolverBase<
 export class KyselyRizzolver<
 	DB,
 	T extends Record<keyof DB & string, readonly string[]>,
-	FKDefs extends KyselyRizzolverFKs<DB>
+	FKDefs extends KyselyRizzolverFKs<DB>,
+	DefaultGatherDepth extends ValidFkDepth = typeof MAX_FK_GATHER_DEPTH
 > implements KyselyRizzolverBase<DB, T, FKDefs>
 {
 	public readonly _types: KyselyRizzolverBase<DB, T, FKDefs>['_types'];
 
 	public readonly fetchObjs: FetchResultFactory<DB>;
 	public readonly gatherObjs: FkGatherResultFactory<DB, FKDefs>;
+	public readonly defaultGatherDepth: DefaultGatherDepth;
 
-	constructor(fields: T, fks: FKDefs) {
+	constructor(fields: T, fks: FKDefs, defaultGatherDepth?: DefaultGatherDepth) {
 		this._types = Object.freeze({
 			fields,
 			fkDefs: fks,
@@ -65,6 +66,7 @@ export class KyselyRizzolver<
 
 		this.fetchObjs = newFetchResultFactory<DB>();
 		this.gatherObjs = newFkGatherResultFactory<DB, FKDefs>();
+		this.defaultGatherDepth = defaultGatherDepth ?? (MAX_FK_GATHER_DEPTH as DefaultGatherDepth);
 	}
 
 	/**
@@ -94,25 +96,25 @@ export class KyselyRizzolver<
 	>(
 		db: Kysely<DB>,
 		table: Table,
-		id: number,
+		where: GatherWhereExpression<DB, Table>,
 		opts: Opts
 	): Promise<ReturnType<typeof this.gatherObjs.newGatherOne<Table, Opts['depth']>>>;
 	async gatherOne<Table extends keyof DB & string>(
 		db: Kysely<DB>,
 		table: Table,
-		id: number,
+		where: GatherWhereExpression<DB, Table>,
 		opts?: Omit<GatherOpts<DB, any>, 'depth'>
-	): Promise<ReturnType<typeof this.gatherObjs.newGatherOne<Table, typeof MAX_FK_GATHER_DEPTH>>>;
+	): Promise<ReturnType<typeof this.gatherObjs.newGatherOne<Table, DefaultGatherDepth>>>;
 	async gatherOne<Table extends keyof DB & string>(
 		db: Kysely<DB>,
 		table: Table,
-		id: number,
+		where: GatherWhereExpression<DB, Table>,
 		opts?: GatherOpts<DB, ValidFkDepth>
 	) {
-		const depth = opts?.depth ?? MAX_FK_GATHER_DEPTH;
+		const depth = opts?.depth ?? this.defaultGatherDepth;
 		const modelCollection = opts?.modelCollection ?? this.newModelCollection();
 
-		const gather = await gatherModelFks(this, db, table, [id], opts);
+		const gather = await gatherModelFks(this, db, table, where, opts);
 		const result = gather[0] ?? undefined;
 
 		return this.gatherObjs.newGatherOne(table, depth, result, modelCollection);
@@ -124,25 +126,25 @@ export class KyselyRizzolver<
 	>(
 		db: Kysely<DB>,
 		table: Table,
-		id: number,
+		where: GatherWhereExpression<DB, Table>,
 		opts: Opts
 	): Promise<ReturnType<typeof this.gatherObjs.newGatherOneX<Table, Opts['depth']>>>;
 	async gatherOneX<Table extends keyof DB & string>(
 		db: Kysely<DB>,
 		table: Table,
-		id: number,
+		where: GatherWhereExpression<DB, Table>,
 		opts?: Omit<GatherOpts<DB, any>, 'depth'>
-	): Promise<ReturnType<typeof this.gatherObjs.newGatherOneX<Table, typeof MAX_FK_GATHER_DEPTH>>>;
+	): Promise<ReturnType<typeof this.gatherObjs.newGatherOneX<Table, DefaultGatherDepth>>>;
 	async gatherOneX<Table extends keyof DB & string>(
 		db: Kysely<DB>,
 		table: Table,
-		id: number,
+		where: GatherWhereExpression<DB, Table>,
 		opts?: GatherOpts<DB, ValidFkDepth>
 	) {
-		const depth = opts?.depth ?? MAX_FK_GATHER_DEPTH;
+		const depth = opts?.depth ?? this.defaultGatherDepth;
 		const modelCollection = opts?.modelCollection ?? this.newModelCollection();
 
-		const gather = await gatherModelFks(this, db, table, [id], opts);
+		const gather = await gatherModelFks(this, db, table, where, opts);
 		const result = gather[0] ?? undefined;
 
 		return this.gatherObjs.newGatherOneX(table, depth, result, modelCollection);
@@ -154,25 +156,25 @@ export class KyselyRizzolver<
 	>(
 		db: Kysely<DB>,
 		table: Table,
-		ids: number[],
+		where: GatherWhereExpression<DB, Table>,
 		opts: Opts
 	): Promise<ReturnType<typeof this.gatherObjs.newGatherSome<Table, Opts['depth']>>>;
 	async gatherSome<Table extends keyof DB & string>(
 		db: Kysely<DB>,
 		table: Table,
-		ids: number[],
+		where: GatherWhereExpression<DB, Table>,
 		opts?: Omit<NoNullGatherOpts<DB, any>, 'depth'>
-	): Promise<ReturnType<typeof this.gatherObjs.newGatherSome<Table, typeof MAX_FK_GATHER_DEPTH>>>;
+	): Promise<ReturnType<typeof this.gatherObjs.newGatherSome<Table, DefaultGatherDepth>>>;
 	async gatherSome<Table extends keyof DB & string>(
 		db: Kysely<DB>,
 		table: Table,
-		ids: number[],
+		where: GatherWhereExpression<DB, Table>,
 		opts?: NoNullGatherOpts<DB, ValidFkDepth>
 	) {
-		const depth = opts?.depth ?? MAX_FK_GATHER_DEPTH;
+		const depth = opts?.depth ?? this.defaultGatherDepth;
 		const modelCollection = opts?.modelCollection ?? this.newModelCollection();
 
-		const gather = await gatherModelFks(this, db, table, ids, opts);
+		const gather = await gatherModelFks(this, db, table, where, opts);
 		const result = gather.filter((r) => !!r);
 		if (result.length < gather.length) {
 			throw new Error('Expected no nulls in fkGatherSome result');

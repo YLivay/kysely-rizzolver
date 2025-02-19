@@ -1,3 +1,4 @@
+import { Selectable } from 'kysely';
 import {
 	assertIsGatherOneResult,
 	assertIsGatherOneXResult,
@@ -12,7 +13,7 @@ import {
 	newGatherOneXResult,
 	newGatherSomeResult
 } from './fk-gather-result.js';
-import type { DBWithFk, ModelFkInstance, ValidFkDepth } from './fks.js';
+import type { DBWithFk, ModelFkExtractSelectable, ModelFkInstance, ValidFkDepth } from './fks.js';
 import type { KyselyRizzolverFKs } from './kysely-rizzolver.js';
 import { type ModelCollection } from './model-collection.js';
 
@@ -175,6 +176,35 @@ export function newFkGatherResultFactory<DB, FKDefs extends KyselyRizzolverFKs<D
 			if (result.depth !== depth) {
 				throw new Error(`Expected a gatherSome result for table ${table} of depth ${depth}`);
 			}
+		},
+
+		/**
+		 * Extracts a Kysely {@link Selectable} instance from a gathered model.
+		 *
+		 * This is useful because Selectables are the lowest common denominators
+		 * for any representation of a DB model, so this allows you to convert
+		 * any gather result to anything else that might build upon Kysely.
+		 *
+		 * For example, to convert a gather result to a fetch result:
+		 * ```
+		 * const userGather: FkGatherOneXResult<DB, 'user'>;
+		 * const userModel = userGather.result;
+		 * const userSelectable = rizzolver.gatherObjs.toSelectable(userModel);
+		 * ```
+		 *
+		 */
+		toSelectable<Model>(model: Model): ModelFkExtractSelectable<DB, Model> {
+			if (model === undefined || model === null) {
+				return model as any;
+			}
+
+			const selectable = {
+				...model
+			};
+			delete (selectable as any)['__fkDepth'];
+			delete (selectable as any)['__table'];
+
+			return selectable as any;
 		}
 	};
 }

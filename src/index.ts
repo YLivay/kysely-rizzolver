@@ -51,7 +51,13 @@ export type {
 } from './fk-gather-result.js';
 
 export { MAX_FK_GATHER_DEPTH, ModelFkGatherError } from './fks.js';
-export type { ModelFkBare, ModelFkGathered, ModelFkInstance, ValidFkDepth } from './fks.js';
+export type {
+	ModelFkBare,
+	ModelFkGathered,
+	ModelFkInstance,
+	ValidFkDepth,
+	GatherWhereExpression
+} from './fks.js';
 
 export type { KyselyRizzolverBuilder } from './kysely-rizzolver-builder.js';
 export type { KyselyRizzolverFkBuilder } from './kysely-rizzolver-fk-builder.js';
