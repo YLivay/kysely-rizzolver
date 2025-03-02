@@ -14,6 +14,7 @@ import {
 	newFetchSomeResult
 } from './fetch-result.js';
 import { type ModelCollection, newModelCollection } from './model-collection.js';
+import type { TableName } from './kysely-rizzolver.js';
 
 /**
  * A {@link FetchResultFactory} exposes variants of fetch-related functions, but
@@ -28,9 +29,9 @@ export function newFetchResultFactory<DB>() {
 		/**
 		 * Creates a new {@link FetchOneResult} instance.
 		 */
-		newFetchOne<K extends keyof DB & string>(
-			table: K,
-			result: Selectable<DB[K]> | undefined,
+		newFetchOne<Table extends TableName<DB>>(
+			table: Table,
+			result: Selectable<DB[Table]> | undefined,
 			models?: ModelCollection<DB>
 		) {
 			models ??= newModelCollection<DB>();
@@ -38,7 +39,7 @@ export function newFetchResultFactory<DB>() {
 				models.add(table, result);
 			}
 
-			return newFetchOneResult<DB, K, Selectable<DB[K]>>(table, result, models);
+			return newFetchOneResult<DB, Table, Selectable<DB[Table]>>(table, result, models);
 		},
 
 		/**
@@ -48,9 +49,9 @@ export function newFetchResultFactory<DB>() {
 		 * input. I found it is way more convenient to assert the type once in this
 		 * funciton rather than in every caller.
 		 */
-		newFetchOneX<K extends keyof DB & string>(
-			table: K,
-			result: Selectable<DB[K]> | undefined,
+		newFetchOneX<Table extends TableName<DB>>(
+			table: Table,
+			result: Selectable<DB[Table]> | undefined,
 			models?: ModelCollection<DB>
 		) {
 			models ??= newModelCollection<DB>();
@@ -58,15 +59,15 @@ export function newFetchResultFactory<DB>() {
 				models.add(table, result);
 			}
 
-			return newFetchOneXResult<DB, K, Selectable<DB[K]>>(table, result, models);
+			return newFetchOneXResult<DB, Table, Selectable<DB[Table]>>(table, result, models);
 		},
 
 		/**
 		 * Creates a new {@link FetchSomeResult} instance.
 		 */
-		newFetchSome<K extends keyof DB & string>(
-			table: K,
-			result: Selectable<DB[K]>[],
+		newFetchSome<Table extends TableName<DB>>(
+			table: Table,
+			result: Selectable<DB[Table]>[],
 			models?: ModelCollection<DB>
 		) {
 			models ??= newModelCollection<DB>();
@@ -74,46 +75,46 @@ export function newFetchResultFactory<DB>() {
 				models.add(table, item);
 			}
 
-			return newFetchSomeResult<DB, K, Selectable<DB[K]>>(table, result, models);
+			return newFetchSomeResult<DB, Table, Selectable<DB[Table]>>(table, result, models);
 		},
 
 		/**
 		 * Checks if a {@link FetchResult} is a {@link FetchOneResult}.
 		 */
-		isFetchOne<K extends keyof DB & string>(
-			table: K,
+		isFetchOne<Table extends TableName<DB>>(
+			table: Table,
 			result: unknown
-		): result is FetchOneResult<DB, K, Selectable<DB[K]>> {
+		): result is FetchOneResult<DB, Table, Selectable<DB[Table]>> {
 			return isFetchOneResult(result) && result.table === table;
 		},
 
 		/**
 		 * Checks if a {@link FetchResult} is a {@link FetchOneXResult}.
 		 */
-		isFetchOneX<K extends keyof DB & string>(
-			table: K,
+		isFetchOneX<Table extends TableName<DB>>(
+			table: Table,
 			result: unknown
-		): result is FetchOneXResult<DB, K, Selectable<DB[K]>> {
+		): result is FetchOneXResult<DB, Table, Selectable<DB[Table]>> {
 			return isFetchOneXResult(result) && result.table === table;
 		},
 
 		/**
 		 * Checks if a {@link FetchResult} is a {@link FetchSomeResult}.
 		 */
-		isFetchSome<K extends keyof DB & string>(
-			table: K,
+		isFetchSome<Table extends TableName<DB>>(
+			table: Table,
 			result: unknown
-		): result is FetchSomeResult<DB, K, Selectable<DB[K]>> {
+		): result is FetchSomeResult<DB, Table, Selectable<DB[Table]>> {
 			return isFetchSomeResult(result) && result.table === table;
 		},
 
 		/**
 		 * Asserts that a {@link FetchResult} is a {@link FetchOneResult}.
 		 */
-		assertIsFetchOne<K extends keyof DB & string>(
-			table: K,
+		assertIsFetchOne<Table extends TableName<DB>>(
+			table: Table,
 			result: unknown
-		): asserts result is FetchOneResult<DB, K, Selectable<DB[K]>> {
+		): asserts result is FetchOneResult<DB, Table, Selectable<DB[Table]>> {
 			assertIsFetchOneResult(result);
 
 			if (result.table !== table) {
@@ -124,10 +125,10 @@ export function newFetchResultFactory<DB>() {
 		/**
 		 * Asserts that a {@link FetchResult} is a {@link FetchOneXResult}.
 		 */
-		assertIsFetchOneX<K extends keyof DB & string>(
-			table: K,
+		assertIsFetchOneX<Table extends TableName<DB>>(
+			table: Table,
 			result: unknown
-		): asserts result is FetchOneXResult<DB, K, Selectable<DB[K]>> {
+		): asserts result is FetchOneXResult<DB, Table, Selectable<DB[Table]>> {
 			assertIsFetchOneXResult(result);
 
 			if (result.table !== table) {
@@ -138,10 +139,10 @@ export function newFetchResultFactory<DB>() {
 		/**
 		 * Asserts that a {@link FetchResult} is a {@link FetchSomeResult}.
 		 */
-		assertIsFetchSome<K extends keyof DB & string>(
-			table: K,
+		assertIsFetchSome<Table extends TableName<DB>>(
+			table: Table,
 			result: unknown
-		): asserts result is FetchSomeResult<DB, K, Selectable<DB[K]>> {
+		): asserts result is FetchSomeResult<DB, Table, Selectable<DB[Table]>> {
 			assertIsFetchSomeResult(result);
 
 			if (result.table !== table) {

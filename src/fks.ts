@@ -9,11 +9,12 @@ import type {
 import type { FKDefsEntry } from './kysely-rizzolver-fk-builder.js';
 import {
 	KyselyRizzolver,
+	type TableName,
 	type KyselyRizzolverBase,
 	type KyselyRizzolverFKs
 } from './kysely-rizzolver.js';
 import type { ModelCollection } from './model-collection.js';
-import type { AnyQueryBuilder } from './query-builder.js';
+import type { AnyQueryContext } from './query-context.js';
 import type { OmitByValue } from './type-helpers.js';
 
 /**
@@ -43,14 +44,14 @@ export type ValidFkDepth = (keyof NextDepth & number) | 0;
 
 type Fk<
 	DB,
-	Referencing extends keyof DB & string,
-	Referenced extends keyof DB & string,
+	Referencing extends TableName<DB>,
+	Referenced extends TableName<DB>,
 	IsNullable extends boolean
 > = {
 	myTable: Referencing;
-	myField: string;
+	myColumn: string;
 	otherTable: Referenced;
-	otherField: string;
+	otherColumn: string;
 	isNullable: IsNullable;
 };
 
@@ -66,18 +67,18 @@ export class ModelFkGatherError extends Error {
 }
 
 /**
- * A model whose FK fields have not been gathered.
+ * A model whose FK columns have not been gathered.
  */
-export type ModelFkBare<DBFk, Table extends keyof DBFk & string> =
+export type ModelFkBare<DBFk, Table extends TableName<DBFk>> =
 	// new line :D
 	{ __fkDepth: 0; __table: Table } & Selectable<OmitFks<DBFk[Table]>>;
 
 /**
- * A model whose FKs fields have been gathered up to a specific depth.
+ * A model whose FKs col umns have been gathered up to a specific depth.
  */
 export type ModelFkGathered<
 	DBFk,
-	Table extends keyof DBFk & string,
+	Table extends TableName<DBFk>,
 	Depth extends Exclude<ValidFkDepth, 0>
 > =
 	// new line :D
@@ -91,7 +92,7 @@ export type ModelFkGathered<
 
 export type ModelFkInstance<
 	DBFk,
-	Table extends keyof DBFk & string,
+	Table extends TableName<DBFk>,
 	Depth extends ValidFkDepth
 > = Depth extends 0 ? ModelFkBare<DBFk, Table> : ModelFkGathered<DBFk, Table, Exclude<Depth, 0>>;
 
@@ -102,7 +103,7 @@ export type ModelFkExtractSelectable<DB, Model> = Model extends ModelFkInstance<
 	infer Table,
 	any
 >
-	? Table extends keyof DB & string
+	? Table extends TableName<DB>
 		? Selectable<DB[Table]>
 		: never
 	: Model extends undefined
@@ -112,12 +113,12 @@ export type ModelFkExtractSelectable<DB, Model> = Model extends ModelFkInstance<
 	: never;
 
 /**
- * A database schema `DB` with FK fields populated according to `FKDefs`.
+ * A database schema `DB` with FK columns populated according to `FKDefs`.
  *
  * `FKDefs` is of type {@link KyselyRizzolverFKs}.
  */
 export type DBWithFk<DB, FKDefs extends KyselyRizzolverFKs<DB>> = {
-	[K in keyof DB & string]: DB[K] & {
+	[K in TableName<DB>]: DB[K] & {
 		[F in keyof FKDefs[K] & string]: FKDefs[K][F] extends infer U
 			? U extends FKDefsEntry<DB, any, any, any, any>
 				? Fk<DB, K, U['otherTable'], U['isNullable']>
@@ -127,10 +128,10 @@ export type DBWithFk<DB, FKDefs extends KyselyRizzolverFKs<DB>> = {
 };
 
 /**
- * Given a database schema with FKs `DBFK`, returns a database schema without
+ * Given a database schema with FKs `DBFk`, returns a database schema without
  * FKs.
  */
-export type DBWithoutFk<DBFK> = { [k in keyof DBFK & string]: OmitFks<DBFK[k]> };
+export type DBWithoutFk<DBFk> = { [k in TableName<DBFk>]: OmitFks<DBFk[k]> };
 
 export type GatherOpts<DB, Depth extends ValidFkDepth> = {
 	/**
@@ -146,10 +147,10 @@ export type GatherOpts<DB, Depth extends ValidFkDepth> = {
 	 *   indicating that a model is invalid.
 	 * - `keep` - keeps the invalid model in the result array.
 	 *
-	 * An invalid model is a model that has an FK field that is unexpectedly
+	 * An invalid model is a model that has an FK column that is unexpectedly
 	 * missing.
 	 *
-	 * For example, if the model has a `user_id` field whose value is 3 but
+	 * For example, if the model has a `user_id` column whose value is 3 but
 	 * there is no user with ID 3 in the database, the model is invalid.
 	 *
 	 * Default: `omit`
@@ -166,15 +167,15 @@ export type NoNullGatherOpts<DB, Depth extends ValidFkDepth> = Omit<
 	'onInvalidModel'
 > & { onInvalidModel?: 'omit' | 'throw' | 'keep' };
 
-export type GatherWhereExpression<DB, Table extends keyof DB & string> = (
+export type GatherWhereExpression<DB, Table extends TableName<DB>> = (
 	eb: ExpressionBuilder<Pick<DB, Table>, Table>
 ) => OperandExpression<any>;
 
 export async function gatherModelFks<
 	DB,
 	FKDefs extends KyselyRizzolverFKs<DB>,
-	KY extends KyselyRizzolverBase<DB, Record<keyof DB & string, any>, FKDefs>,
-	Table extends keyof DB & string,
+	KY extends KyselyRizzolverBase<DB, Record<TableName<DB>, any>, FKDefs>,
+	Table extends TableName<DB>,
 	Depth extends ValidFkDepth = typeof MAX_FK_GATHER_DEPTH
 >(
 	rizzolver: KY,
@@ -189,8 +190,8 @@ export async function gatherModelFks<
 
 	const fkDefs = rizzolver._types.fkDefs;
 	let qb = (rizzolver as unknown as KyselyRizzolver<any, any, any>)
-		.newQueryBuilder()
-		.add(table, table as any, rizzolver._types.fields[table]) as AnyQueryBuilder;
+		.newQueryContext()
+		.add(table, table as string, rizzolver._types.tableToColumns[table]) as AnyQueryContext;
 
 	const gatherItems: GatherItem[] = [];
 	qb = _collectGatherData(fkDefs, table, qb, depth, gatherItems);
@@ -199,7 +200,7 @@ export async function gatherModelFks<
 	for (const gatherItem of gatherItems) {
 		ky = ky.leftJoin(gatherItem.tableAlias as any, gatherItem.join) as any;
 	}
-	ky = ky.select(qb.allFields()).where((eb) => where(eb as any));
+	ky = ky.select(qb.cols()).where((eb) => where(eb as any));
 	const rizzult = await qb.run(() => ky.execute());
 
 	const collection = rizzult.models;
@@ -232,10 +233,10 @@ type GatherItem = {
 function _collectGatherData(
 	fkDefs: KyselyRizzolverFKs<any>,
 	table: string,
-	qb: AnyQueryBuilder,
+	qb: AnyQueryContext,
 	depthLeft: ValidFkDepth,
 	result: GatherItem[]
-): AnyQueryBuilder {
+): AnyQueryContext {
 	if (depthLeft <= 0) {
 		return qb;
 	}
@@ -246,10 +247,10 @@ function _collectGatherData(
 		const otherAlias = `fk${qb.numSelectors}`;
 		qb = qb.add(fkDef.otherTable, otherAlias);
 
-		const myField = `${myAlias}.${fkDef.myField}`; // qb.selectors[myAlias].field(fkDef.myField).str;
-		const otherField = `${otherAlias}.${fkDef.otherField}`; // qb.selectors[otherAlias].field(fkDef.otherField).str;
+		const myColumn = `${myAlias}.${fkDef.myColumn}`;
+		const otherColumn = `${otherAlias}.${fkDef.otherColumn}`;
 		const join: JoinCallbackExpression<any, any, any> = (join) =>
-			join.onRef(myField, '=', otherField);
+			join.onRef(myColumn, '=', otherColumn);
 
 		result.push({ tableAlias: qb.table(otherAlias), join });
 
@@ -279,13 +280,13 @@ function _baseToGatheredModel(
 	const gatheredModel: any = { __fkDepth: depth, __table: table, ...baseModel };
 	const myFkDefs = fkDefs[table] ?? {};
 	for (const [fkName, fkDef] of Object.entries(myFkDefs)) {
-		const fkValue = baseModel[fkDef.myField];
+		const fkValue = baseModel[fkDef.myColumn];
 		if (fkValue !== null && fkValue !== undefined && typeof fkValue !== 'number') {
 			throw new ModelFkGatherError(
 				table,
 				myId,
-				`Invalid looking FK value for reference '${fkName}' (field: '${
-					fkDef.myField
+				`Invalid looking FK value for reference '${fkName}' (column: '${
+					fkDef.myColumn
 				}'). Expected positive number, got: '${JSON.stringify(fkValue)}'`
 			);
 		}
@@ -305,7 +306,7 @@ function _baseToGatheredModel(
 					throw new ModelFkGatherError(
 						table,
 						myId,
-						`Could not find model for FK reference '${fkName}' (field: '${fkDef.myField}') for id ${fkValue}`
+						`Could not find model for FK reference '${fkName}' (column: '${fkDef.myColumn}') for id ${fkValue}`
 					);
 			}
 		}

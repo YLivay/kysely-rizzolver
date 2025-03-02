@@ -60,7 +60,7 @@ const rizzolver = KyselyRizzolver.builderForSchema<DB>()
     .build();
 ```
 
-You will get compile time errors if the fields don't actually match the schema.
+You will get compile time errors if the column names don't actually match the schema.
 
 ### Creating a Query Builder
 
@@ -68,7 +68,7 @@ You will get compile time errors if the fields don't actually match the schema.
 import { rizzolver } from './rizzolver';
 
 const qb = await rizzolver
-    .newQueryBuilder()
+    .newQueryContext()
     .add('session', 's')
     .add('user', 'u')
     .add('image', 'i');
@@ -77,9 +77,9 @@ const qb = await rizzolver
 The query builder exposes expressions to use in queries. For example:
 
 - `qb.table('u')` returns `'user as u'`.
-- `qb.fieldsOf('u')` returns `['u.id as _u_id', 'u.name as _u_name', 'u.email as _u_email']`.
-- `qb.field('u.name').value` returns `'_u_name'`.
-- `qb.field('u.name').from('a')` returns `'a._u_name'`.
+- `qb.cols('u')` returns `['u.id as _u_id', 'u.name as _u_name', 'u.email as _u_email']`.
+- `qb.col('u.name').alias` returns `'_u_name'`.
+- `qb.col('u.name').aliasOn('a')` returns `'a._u_name'`.
 
 ### Using a Query Builder
 
@@ -94,11 +94,11 @@ const rows = await db
             eb
                 .selectFrom(qb.table('u'))
                 .leftJoin(qb.table('i'), 'u.avatar_image_id', 'i.id')
-                .select(qb.fieldsOf('u', 'i'))
+                .select(qb.cols('u', 'i'))
                 .as('a'),
         (join) => join.onRef('s.user_id', '=', `'a._u_id'`)
     )
-    .select(qb.fieldsOf('s'))
+    .select(qb.cols('s'))
     .selectAll('a')
     .where('s.id', '=', sessionId)
     .execute();

@@ -1,6 +1,7 @@
 import type { DBWithoutFk, ModelFkInstance, ValidFkDepth } from './fks.js';
 import { MAX_FK_GATHER_DEPTH } from './fks.js';
 import type { ModelCollection } from './model-collection.js';
+import type { TableName } from './kysely-rizzolver.js';
 
 /**
  * A {@link FkGatherResult} is a result of a gather operation. It can be one of
@@ -14,7 +15,7 @@ import type { ModelCollection } from './model-collection.js';
  */
 export type FkGatherResult<
 	DBFk,
-	Table extends keyof DBFk & string,
+	Table extends TableName<DBFk>,
 	Depth extends ValidFkDepth = typeof MAX_FK_GATHER_DEPTH
 > =
 	| FkGatherOneResult<DBFk, Table, Depth>
@@ -27,7 +28,7 @@ export type FkGatherResult<
  */
 export type FkGatherOneResult<
 	DBFk,
-	Table extends keyof DBFk & string,
+	Table extends TableName<DBFk>,
 	Depth extends ValidFkDepth = typeof MAX_FK_GATHER_DEPTH
 > = {
 	gatherType: 'gatherOne';
@@ -49,7 +50,7 @@ export type FkGatherOneResult<
  */
 export type FkGatherOneXResult<
 	DBFk,
-	Table extends keyof DBFk & string,
+	Table extends TableName<DBFk>,
 	Depth extends ValidFkDepth = typeof MAX_FK_GATHER_DEPTH
 > = {
 	gatherType: 'gatherOne';
@@ -70,7 +71,7 @@ export type FkGatherOneXResult<
  */
 export type FkGatherSomeResult<
 	DBFk,
-	Table extends keyof DBFk & string,
+	Table extends TableName<DBFk>,
 	Depth extends ValidFkDepth = typeof MAX_FK_GATHER_DEPTH
 > = {
 	gatherType: 'gatherSome';
@@ -107,17 +108,13 @@ export type AsGatherSomeResult<T extends FkGatherResult<any, string, ValidFkDept
 /**
  * Creates a new {@link FkGatherOneResult} instance.
  */
-export function newGatherOneResult<
-	DBFk,
-	Table extends keyof DBFk & string,
-	Depth extends ValidFkDepth
->(
+export function newGatherOneResult<DBFk, Table extends TableName<DBFk>, Depth extends ValidFkDepth>(
 	table: Table,
 	depth: Depth,
 	result: ModelFkInstance<DBFk, Table, Depth> | undefined,
 	models?: ModelCollection<DBWithoutFk<DBFk>>
 ) {
-	const ref = { value: null as any as FkGatherOneXResult<DBFk, Table, Depth> };
+	const ref = { value: null as unknown as FkGatherOneXResult<DBFk, Table, Depth> };
 
 	const me: FkGatherOneResult<DBFk, Table, Depth> = {
 		gatherType: 'gatherOne' as const,
@@ -148,7 +145,7 @@ export function newGatherOneResult<
  */
 export function newGatherOneXResult<
 	DBFk,
-	Table extends keyof DBFk & string,
+	Table extends TableName<DBFk>,
 	Depth extends ValidFkDepth
 >(
 	table: Table,
@@ -160,7 +157,7 @@ export function newGatherOneXResult<
 		throw new Error('Expected a gatherOneX result');
 	}
 
-	const ref = { value: null as any as FkGatherOneXResult<DBFk, Table, Depth> };
+	const ref = { value: null as unknown as FkGatherOneXResult<DBFk, Table, Depth> };
 
 	const me: FkGatherOneXResult<DBFk, Table, Depth> = {
 		gatherType: 'gatherOne' as const,
@@ -183,7 +180,7 @@ export function newGatherOneXResult<
  */
 export function newGatherSomeResult<
 	DBFk,
-	Table extends keyof DBFk & string,
+	Table extends TableName<DBFk>,
 	Depth extends ValidFkDepth
 >(
 	table: Table,
@@ -225,11 +222,7 @@ export function isGatherResult(result: unknown): result is FkGatherResult<any, a
 /**
  * Checks if `value` is a {@link FkGatherOneResult}.
  */
-export function isGatherOneResult<
-	DBFk,
-	Table extends keyof DBFk & string,
-	Depth extends ValidFkDepth
->(
+export function isGatherOneResult<DBFk, Table extends TableName<DBFk>, Depth extends ValidFkDepth>(
 	value: FkGatherOneResult<DBFk, Table, Depth> | FkGatherOneXResult<DBFk, Table, Depth>
 ): value is typeof value;
 export function isGatherOneResult(
@@ -244,16 +237,12 @@ export function isGatherOneResult(
 /**
  * Checks if `value` is a {@link FkGatherOneXResult}.
  */
-export function isGatherOneXResult<
-	DBFk,
-	Table extends keyof DBFk & string,
-	Depth extends ValidFkDepth
->(value: FkGatherOneResult<DBFk, Table, Depth>): value is FkGatherOneXResult<DBFk, Table, Depth>;
-export function isGatherOneXResult<
-	DBFk,
-	Table extends keyof DBFk & string,
-	Depth extends ValidFkDepth
->(value: FkGatherOneXResult<DBFk, Table, Depth>): value is typeof value;
+export function isGatherOneXResult<DBFk, Table extends TableName<DBFk>, Depth extends ValidFkDepth>(
+	value: FkGatherOneResult<DBFk, Table, Depth>
+): value is FkGatherOneXResult<DBFk, Table, Depth>;
+export function isGatherOneXResult<DBFk, Table extends TableName<DBFk>, Depth extends ValidFkDepth>(
+	value: FkGatherOneXResult<DBFk, Table, Depth>
+): value is typeof value;
 export function isGatherOneXResult(
 	value: unknown
 ): value is FkGatherOneXResult<any, any, ValidFkDepth>;
@@ -271,11 +260,9 @@ export function isGatherOneXResult(
 /**
  * Checks if `value` is a {@link FkGatherSomeResult}.
  */
-export function isGatherSomeResult<
-	DBFk,
-	Table extends keyof DBFk & string,
-	Depth extends ValidFkDepth
->(value: FkGatherSomeResult<DBFk, Table, Depth>): value is typeof value;
+export function isGatherSomeResult<DBFk, Table extends TableName<DBFk>, Depth extends ValidFkDepth>(
+	value: FkGatherSomeResult<DBFk, Table, Depth>
+): value is typeof value;
 export function isGatherSomeResult(
 	value: unknown
 ): value is FkGatherSomeResult<any, any, ValidFkDepth>;

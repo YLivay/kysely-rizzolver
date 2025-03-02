@@ -1,5 +1,6 @@
 import type { Selectable } from 'kysely';
-import type { QueryBuilder } from './query-builder.js';
+import type { QueryContext } from './query-context.js';
+import type { TableName } from './kysely-rizzolver.js';
 
 /**
  * A {@link ModelCollection} is a collection of {@link Selectable} instances,
@@ -10,33 +11,33 @@ import type { QueryBuilder } from './query-builder.js';
  * casting.
  *
  * It does not preserve information on which tables are present in the
- * collection, or which fields on their {@link Selectable}s have been gathered.
+ * collection, or which columns on their {@link Selectable}s have been gathered.
  *
  * If you need to preserve this information, you should just pass the result of
- * the {@link QueryBuilder.run} method where needed. However, doing this is not
+ * the {@link QueryContext.run} method where needed. However, doing this is not
  * recommended, as your types can easily become too nested to the point where
  * TypeScript can't infer them correctly.
  */
 export type ModelCollection<DB> = {
-	add<Table extends keyof DB & string>(
+	add<Table extends TableName<DB>>(
 		table: Table,
 		selectable?: Selectable<DB[Table]>
 	): ModelCollection<DB>;
 	addCollection(collection: ModelCollection<DB>): ModelCollection<DB>;
-	get(): Data<DB>;
-	get<Table extends keyof DB & string>(table: Table): Record<number, Selectable<DB[Table]>>;
-	get<Table extends keyof DB & string>(table: Table, id: number): Selectable<DB[Table]> | undefined;
-	getX<Table extends keyof DB & string>(
+	get(): ModelSelectables<DB>;
+	get<Table extends TableName<DB>>(table: Table): Record<number, Selectable<DB[Table]>>;
+	get<Table extends TableName<DB>>(table: Table, id: number): Selectable<DB[Table]> | undefined;
+	getX<Table extends TableName<DB>>(
 		table: Table,
 		id: number
 	): Record<number, Selectable<DB[Table]>>;
 };
 
-export function newModelCollection<DB>(init: Data<DB> = {}) {
-	const collection: Data<DB> = { ...init };
+export function newModelCollection<DB>(init: ModelSelectables<DB> = {}) {
+	const collection: ModelSelectables<DB> = { ...init };
 
 	return {
-		add<Table extends keyof DB & string>(table: Table, selectable?: Selectable<DB[Table]>) {
+		add<Table extends TableName<DB>>(table: Table, selectable?: Selectable<DB[Table]>) {
 			if (
 				!selectable ||
 				!('id' in selectable) ||
@@ -56,14 +57,14 @@ export function newModelCollection<DB>(init: Data<DB> = {}) {
 
 		addCollection(collection: ModelCollection<DB>) {
 			for (const [table, entries] of Object.entries(collection.get())) {
-				for (const [id, model] of Object.entries(entries as any)) {
+				for (const model of Object.values(entries as any)) {
 					this.add(table as any, model as any);
 				}
 			}
 			return this;
 		},
 
-		get<Table extends keyof DB & string>(table?: Table, id?: number) {
+		get<Table extends TableName<DB>>(table?: Table, id?: number) {
 			if (!table) {
 				return collection;
 			}
@@ -75,7 +76,7 @@ export function newModelCollection<DB>(init: Data<DB> = {}) {
 			return collection[table]?.[id];
 		},
 
-		getX<Table extends keyof DB & string>(table: Table, id: number) {
+		getX<Table extends TableName<DB>>(table: Table, id: number) {
 			const result = this.get(table, id);
 			if (!result) {
 				throw new Error(`Model not found in ModelCollection for table ${table} with id ${id}`);
@@ -85,6 +86,6 @@ export function newModelCollection<DB>(init: Data<DB> = {}) {
 	} as ModelCollection<DB>;
 }
 
-type Data<DB> = {
-	[M in keyof DB & string]?: Partial<Record<number, Selectable<DB[M]>>>;
+type ModelSelectables<DB> = {
+	[M in TableName<DB>]?: Partial<Record<number, Selectable<DB[M]>>>;
 };

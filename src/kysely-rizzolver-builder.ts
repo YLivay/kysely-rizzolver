@@ -4,19 +4,19 @@ import {
 	type FkDefsBuilderCallback,
 	newKyselyRizzolverFkBuilder
 } from './kysely-rizzolver-fk-builder.js';
-import { KyselyRizzolver, type KyselyRizzolverFKs } from './kysely-rizzolver.js';
+import { KyselyRizzolver, type KyselyRizzolverFKs, type TableName } from './kysely-rizzolver.js';
 
 export type KyselyRizzolverBuilder<
 	DB,
-	T extends Partial<Record<keyof DB & string, readonly string[]>>,
+	T extends Partial<Record<TableName<DB>, readonly string[]>>,
 	DefaultGatherDepth extends ValidFkDepth = typeof MAX_FK_GATHER_DEPTH
-> = T extends Record<keyof DB & string, readonly string[]>
+> = T extends Record<TableName<DB>, readonly string[]>
 	? _KyselyRizzolverBuilder_Valid<DB, T, DefaultGatherDepth>
 	: _KyselyRizzolverBuilder_InProgress<DB, T, DefaultGatherDepth>;
 
 type _KyselyRizzolverBuilder_Valid<
 	DB,
-	T extends Record<keyof DB & string, readonly string[]>,
+	T extends Record<TableName<DB>, readonly string[]>,
 	DefaultGatherDepth extends ValidFkDepth = typeof MAX_FK_GATHER_DEPTH
 > = {
 	defaultGatherDepth<NewDepth extends ValidFkDepth>(
@@ -30,12 +30,12 @@ type _KyselyRizzolverBuilder_Valid<
 
 type _KyselyRizzolverBuilder_InProgress<
 	DB,
-	T extends Partial<Record<keyof DB & string, readonly string[]>>,
+	T extends Partial<Record<TableName<DB>, readonly string[]>>,
 	DefaultGatherDepth extends ValidFkDepth = typeof MAX_FK_GATHER_DEPTH
 > = {
-	table<K extends keyof DB & string, U extends readonly (keyof DB[K])[]>(
+	table<K extends TableName<DB>, U extends readonly (keyof DB[K])[]>(
 		name: K,
-		fields: U &
+		columns: U &
 			([keyof DB[K]] extends [U[number]]
 				? unknown
 				: `Missing key: ${Exclude<keyof DB[K] & string, U[number]>}`)
@@ -44,30 +44,30 @@ type _KyselyRizzolverBuilder_InProgress<
 
 export function newKyselyRizzolverBuilder<
 	DB,
-	T extends Partial<Record<keyof DB & string, readonly string[]>>,
+	TableToColumns extends Partial<Record<TableName<DB>, readonly string[]>>,
 	DefaultGatherDepth extends ValidFkDepth = typeof MAX_FK_GATHER_DEPTH
->(fields: T, defaultGatherDepth?: DefaultGatherDepth) {
+>(tableToColumns: TableToColumns, defaultGatherDepth?: DefaultGatherDepth) {
 	return {
-		table<K extends keyof DB & string, U extends readonly (keyof DB[K])[]>(
-			tableName: K,
-			tableFields: U &
+		table<K extends TableName<DB>, U extends readonly (keyof DB[K])[]>(
+			table: K,
+			columns: U &
 				([keyof DB[K]] extends [U[number]]
 					? unknown
 					: `Missing key: ${Exclude<keyof DB[K] & string, U[number]>}`)
 		) {
-			return newKyselyRizzolverBuilder<DB, T & { [key in K]: typeof tableFields }>({
-				...fields,
-				[tableName]: tableFields
+			return newKyselyRizzolverBuilder<DB, TableToColumns & { [key in K]: typeof columns }>({
+				...tableToColumns,
+				[table]: columns
 			}) as any;
 		},
 
 		defaultGatherDepth<NextDepth extends ValidFkDepth>(depth: NextDepth) {
-			return newKyselyRizzolverBuilder<DB, T, NextDepth>(fields, depth);
+			return newKyselyRizzolverBuilder<DB, TableToColumns, NextDepth>(tableToColumns, depth);
 		},
 
 		build<FKDefs extends KyselyRizzolverFKs<DB>>(cb?: FkDefsBuilderCallback<DB, FKDefs>) {
 			const defs = cb?.(newKyselyRizzolverFkBuilder<DB>({}));
-			return new KyselyRizzolver(fields, defs ?? {}, defaultGatherDepth);
+			return new KyselyRizzolver(tableToColumns, defs ?? {}, defaultGatherDepth);
 		}
-	} as unknown as KyselyRizzolverBuilder<DB, T>;
+	} as unknown as KyselyRizzolverBuilder<DB, TableToColumns>;
 }

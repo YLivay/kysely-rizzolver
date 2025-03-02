@@ -1,15 +1,11 @@
 import type { Selectable } from 'kysely';
 import type {
-	AllTableFields,
-	AnyTableField,
-	KyAllTableFields,
-	KyAnyTableField,
-	KyDB,
+	AnyTableColumn,
 	KyselyRizzolverBase,
-	KyTableName,
+	KyselyRizzolver,
 	TableName
 } from './kysely-rizzolver.js';
-import type { QueryBuilder } from './query-builder.js';
+import type { QueryContext } from './query-context.js';
 
 /**
  * A {@link Selector} makes it easier to build select expressions for a
@@ -17,198 +13,211 @@ import type { QueryBuilder } from './query-builder.js';
  * Kysely's {@link Selectable} instances.
  *
  * {@link Selector} is a low level utility that is used by
- * {@link QueryBuilder} to work with multiple selectors.
+ * {@link QueryContext} to work with multiple selectors.
  */
-export type AnySelector<
+export interface Selector<
+	KY extends KyselyRizzolverBase<any, any, any>,
+	Table extends KyselyRizzolver.TableName<KY>,
+	Alias extends string,
+	Columns extends readonly KyselyRizzolver.AnyTableColumn<
+		KY,
+		Table
+	>[] = KyselyRizzolver.AllTableColumns<KY, Table>
+> extends SelectorData<KyselyRizzolver.ExtractDB<KY>, Table, Alias, Columns> {
+	/**
+	 * Parses the results of a query into the model defined by this selector for each row.
+	 *
+	 * Example:
+	 * ```
+	 * const selector = newSelector(rizzolver, 'user', 'u');
+	 * const data = await db.selectFrom(selector.table.asAlias).selectAll().execute();
+	 * const parsed = selector.parse(data);
+	 *  // => type would be { row: Row, model: Selectable<User> | undefined }[]
+	 * ```
+	 */
+	parse<Row extends Record<string, unknown>>(rows: Row[]): SelectorResult<KY, Row, Table, Columns>;
+}
+
+interface SelectorData<
 	DB,
 	Table extends TableName<DB>,
 	Alias extends string,
-	TableFields extends AnyTableField<DB, Table>[] = AllTableFields<DB, Table>
-> = {
-	input: {
+	Columns extends readonly AnyTableColumn<DB, Table>[]
+> {
+	table: {
 		/**
 		 * The table name that's being selected from.
 		 */
-		table: Table;
-		/**
-		 * The alias for the table.
-		 */
-		alias: Alias;
-		/**
-		 * An array of the fields to be selected from the table.
-		 *
-		 * This can be omitted, in which case it will default to all the fields of
-		 * the table.
-		 */
-		tableFields: TableFields;
-	};
-	/**
-	 * A `"table as alias"` expression for using in select expressions.
-	 */
-	selectTable: TableAlias<DB, Table, Alias>;
-	/**
-	 * An array of `"table.field as alias"` expressions for using in select expressions.
-	 */
-	selectFields: FieldsAsAliases<Alias, TableFields>;
-	/**
-	 * A utility method that allows you to reference a specific field.
-	 */
-	field<Field extends TableFields[number]>(
-		field: Field
-	): {
-		str: `_${Alias}_${Field}`;
-		/**
-		 * A utility method that allows you to reference the field from a different table alias.
-		 *
-		 * This is useful if you need to reference the field from a subquery for example.
-		 */
-		from<A extends string>(alias: A): `${A}.${FieldAlias<Alias, Field>}`;
-	};
-	/**
-	 * Parses the results of a query into the model defined by this selector for each row.
-	 *
-	 * Example:
-	 * ```
-	 * const selector = newSelector('user', 'u');
-	 * const data = await db.selectFrom(selector.tableAlias).selectAll().execute();
-	 * const parsed = selector.select(data);
-	 *   // => type would be { row: Row, model: Selectable<User> | undefined }[]
-	 * ```
-	 */
-	select<Row extends Record<string, unknown>>(
-		rows: Row[]
-	): AnySelectorResult<DB, Row, Table, TableFields>;
-};
+		name: Table;
 
-/**
- * A {@link Selector} makes it easier to build select expressions for a
- * table in a type-safe way. It can process the results of queries into
- * Kysely's {@link Selectable} instances.
- *
- * {@link Selector} is a low level utility that is used by
- * {@link QueryBuilder} to work with multiple selectors.
- */
-export type Selector<
-	KY extends KyselyRizzolverBase<any, any, any>,
-	Table extends KyTableName<KY>,
-	Alias extends string,
-	TableFields extends readonly KyAnyTableField<KY, Table>[] = KyAllTableFields<KY, Table>
-> = {
-	input: {
-		/**
-		 * The table name that's being selected from.
-		 */
-		table: Table;
 		/**
 		 * The alias for the table.
 		 */
 		alias: Alias;
+
 		/**
-		 * An array of the fields to be selected from the table.
-		 *
-		 * This can be omitted, in which case it will default to all the fields of
-		 * the table.
+		 * A `"table as alias"` expression for using in select expressions.
 		 */
-		tableFields: TableFields;
-	};
-	/**
-	 * A `"table as alias"` expression for using in select expressions.
-	 */
-	selectTable: KyTableAlias<KY, Table, Alias>;
-	/**
-	 * An array of `"table.field as alias"` expressions for using in select expressions.
-	 */
-	selectFields: FieldsAsAliases<Alias, TableFields>;
-	/**
-	 * A utility method that allows you to reference a specific field.
-	 */
-	field<Field extends TableFields[number]>(
-		field: Field
-	): {
-		str: `_${Alias}_${Field}`;
+		asAlias: TableAliasExpression<DB, Table, Alias>;
+
 		/**
-		 * A utility method that allows you to reference the field from a different table alias.
+		 * A utility method that allows you to reference the table from a different table alias.
 		 *
-		 * This is useful if you need to reference the field from a subquery for example.
+		 * Example:
+		 *
+		 * ```
+		 * newSelector(rizzolver, 'user', 'u').aliasOn('a');
+		 * // => 'a.u'
+		 * ```
 		 */
-		from<A extends string>(alias: A): `${A}.${FieldAlias<Alias, Field>}`;
+		aliasOn<A extends string>(alias: A): `${A}.${Alias}`;
 	};
-	/**
-	 * Parses the results of a query into the model defined by this selector for each row.
-	 *
-	 * Example:
-	 * ```
-	 * const selector = newSelector('user', 'u');
-	 * const data = await db.selectFrom(selector.tableAlias).selectAll().execute();
-	 * const parsed = selector.select(data);
-	 *   // => type would be { row: Row, model: Selectable<User> | undefined }[]
-	 * ```
-	 */
-	select<Row extends Record<string, unknown>>(
-		rows: Row[]
-	): SelectorResult<KY, Row, Table, TableFields>;
+
+	cols: {
+		/**
+		 * An array of the column names.
+		 */
+		names: Columns;
+
+		/**
+		 * An array of the column aliases.
+		 */
+		aliases: ColumnAliases<Alias, Columns>;
+
+		/**
+		 * An array of `"table.column as alias"` expressions for using in select expressions.
+		 *
+		 * Example:
+		 *
+		 * ```
+		 * const selector = newSelector(rizzolver, 'user', 'u', ['username', 'email'] as const);
+		 * selector.cols.asAliases;
+		 * // => ['u.username as _u_username', 'u.email as _u_email']
+		 * ```
+		 */
+		asAliases: ColumnAliasExpressions<Alias, Columns>;
+
+		/**
+		 * A utility method that allows you to reference the column from a different table alias.
+		 *
+		 * Example:
+		 *
+		 * ```
+		 * const selector = newSelector(rizzolver, 'user', 'u', ['username', 'email'] as const);
+		 * selector.cols.aliasesOn('a');
+		 * // => ['a._u_username', 'a._u_email']
+		 * ```
+		 */
+		aliasesOn<A extends string>(alias: A): ColumnAliasesOn<Alias, ColumnAliases<Alias, Columns>, A>;
+	};
+
+	col<Column extends Columns[number]>(column: Column): SelectorColumnData<Alias, Column>;
+}
+
+export type SelectorColumnData<Alias extends string, Column extends string> = {
+	name: Column;
+	alias: ColumnAlias<Alias, Column>;
+	asAlias: ColumnAliasExpression<Alias, Column>;
+	aliasOn<A extends string>(alias: A): `${A}.${ColumnAlias<Alias, Column>}`;
 };
 
 export function newSelector<
 	KY extends KyselyRizzolverBase<any, any, any>,
-	Table extends KyTableName<KY>,
+	Table extends KyselyRizzolver.TableName<KY>,
 	Alias extends string
 >(
 	rizzolver: KY,
 	tableName: Table,
 	alias: Alias
-): Selector<KY, Table, Alias, KyAllTableFields<KY, Table>>;
+): Selector<KY, Table, Alias, KyselyRizzolver.AllTableColumns<KY, Table>>;
 export function newSelector<
 	KY extends KyselyRizzolverBase<any, any, any>,
-	Table extends KyTableName<KY>,
+	Table extends KyselyRizzolver.TableName<KY>,
 	Alias extends string,
-	Keys extends readonly KyAnyTableField<KY, Table>[]
->(rizzolver: KY, tableName: Table, alias: Alias, keys?: Keys): Selector<KY, Table, Alias, Keys>;
+	Columns extends readonly KyselyRizzolver.AnyTableColumn<KY, Table>[]
+>(
+	rizzolver: KY,
+	tableName: Table,
+	alias: Alias,
+	keys?: Columns
+): Selector<KY, Table, Alias, Columns>;
 export function newSelector<
 	KY extends KyselyRizzolverBase<any, any, any>,
-	Table extends KyTableName<KY>,
+	Table extends KyselyRizzolver.TableName<KY>,
 	Alias extends string,
-	Keys extends readonly KyAnyTableField<KY, Table>[] = KyAllTableFields<KY, Table>
->(rizzolver: KY, tableName: Table, alias: Alias, keys?: Keys) {
-	const effectiveKeys = (keys ?? rizzolver._types.fields[tableName]) as Keys;
-	type MySelectable = Selectable<Pick<KyDB<KY>[Table], Keys[number]>>;
+	Columns extends readonly KyselyRizzolver.AnyTableColumn<
+		KY,
+		Table
+	>[] = KyselyRizzolver.AllTableColumns<KY, Table>
+>(rizzolver: KY, tableName: Table, tableAlias: Alias, columns?: Columns) {
+	const columnNames = (columns ?? rizzolver._types.tableToColumns[tableName]) as Columns;
+	type MySelectable = Selectable<Pick<KyselyRizzolver.ExtractDB<KY>[Table], Columns[number]>>;
 
-	const tableAlias = `${tableName} as ${alias}` as const;
-	const fields = effectiveKeys.map(
-		(field) => `${alias}.${field} as _${alias}_${field}` as const
-	) as FieldsAsAliases<Alias, Keys>;
+	const tableAsAlias = `${tableName} as ${tableAlias}` as const;
+	const columnAliases = columnNames.map((col) => `_${tableAlias}_${col}` as const) as ColumnAliases<
+		Alias,
+		Columns
+	>;
+	const columnsAsAliases = columnNames.map(
+		(col) => `${tableAlias}.${col} as _${tableAlias}_${col}` as const
+	) as ColumnAliasExpressions<Alias, Columns>;
 
 	function _rowToModel(result: Record<string, unknown> | undefined): MySelectable | undefined {
-		if (!result || !result[`_${alias}_id`]) {
+		// TODO: this is wrong, we don't necessarily fetch the id column.
+		//
+		// perhaps the better way is to check if the result has only undefined
+		// values?
+		//
+		// how would we handle a selector with only optional columns? need to
+		// make sure kysely returns them as null and not undefined so we can
+		// distinguish.
+		if (!result || !result[`_${tableAlias}_id`]) {
 			return undefined;
 		}
 
 		const model = {} as any;
-		for (const field of effectiveKeys) {
-			const aliasedField = `_${alias}_${field}` as const;
-			model[field] = result[aliasedField] ?? undefined;
+		for (const col of columnNames) {
+			const colAlias = `_${tableAlias}_${col}` as const;
+			model[col] = result[colAlias] ?? undefined;
 		}
 		return model;
 	}
 
-	const selector: Selector<KY, Table, Alias, Keys> = {
-		input: {
-			table: tableName,
-			alias,
-			tableFields: effectiveKeys
+	const selector: Selector<KY, Table, Alias, Columns> = {
+		table: {
+			name: tableName,
+			alias: tableAlias,
+			asAlias: tableAsAlias,
+			aliasOn<A extends string>(onAlias: A) {
+				return `${onAlias}.${tableAlias}` as const;
+			}
 		},
-		selectTable: tableAlias,
-		selectFields: fields,
-		field<Field extends Keys[number]>(field: Field) {
-			return {
-				str: `_${alias}_${field}`,
-				from<A extends string>(table: A) {
-					return `${table}._${alias}_${field}`;
-				}
-			} as const;
+		cols: {
+			names: columnNames,
+			aliases: columnAliases,
+			asAliases: columnsAsAliases,
+			aliasesOn<A extends string>(onAlias: A) {
+				// TODO
+				return columnAliases.map((columnAlias) => `${onAlias}.${columnAlias}` as const) as any;
+			}
 		},
+		col<Column extends Columns[number]>(name: Column) {
+			if (!columnNames.includes(name as any)) {
+				throw new Error(`Column "${name}" does not exist or was not selected`);
+			}
 
-		select<Row extends Record<string, unknown>>(rows: Row[]) {
+			const colAlias = `_${tableAlias}_${name}` as const;
+
+			return {
+				name,
+				alias: colAlias,
+				asAlias: `${tableAlias}.${name} as ${colAlias}`,
+				aliasOn<A extends string>(alias: A) {
+					return `${alias}.${colAlias}` as const;
+				}
+			};
+		},
+		parse<Row extends Record<string, unknown>>(rows: Row[]) {
 			const data: { row: Row; model: MySelectable | undefined }[] = [];
 
 			for (const row of rows) {
@@ -226,44 +235,47 @@ export function newSelector<
 export type SelectorResult<
 	KY extends KyselyRizzolverBase<any, any, any>,
 	Row extends Record<string, unknown>,
-	Table extends KyTableName<KY>,
-	TableFields extends readonly KyAnyTableField<KY, Table>[] = KyAllTableFields<KY, Table>
+	Table extends KyselyRizzolver.TableName<KY>,
+	Columns extends readonly KyselyRizzolver.AnyTableColumn<
+		KY,
+		Table
+	>[] = KyselyRizzolver.AllTableColumns<KY, Table>
 > = {
 	row: Row;
-	model: Selectable<Pick<KyDB<KY>[Table], TableFields[number]>> | undefined;
+	model: Selectable<Pick<KyselyRizzolver.ExtractDB<KY>[Table], Columns[number]>> | undefined;
 }[];
 
-export type AnySelectorResult<
+type TableAliasExpression<
 	DB,
-	Row extends Record<string, unknown>,
 	Table extends TableName<DB>,
-	TableFields extends readonly AnyTableField<DB, Table>[] = AllTableFields<DB, Table>
-> = {
-	row: Row;
-	model: Selectable<Pick<DB[Table], TableFields[number]>> | undefined;
-}[];
-
-type KyTableAlias<
-	KY extends KyselyRizzolverBase<any, any, any>,
-	Table extends KyTableName<KY>,
 	Alias extends string
 > = `${Table} as ${Alias}`;
 
-type TableAlias<DB, Table extends TableName<DB>, Alias extends string> = `${Table} as ${Alias}`;
+type ColumnAlias<TableAlias extends string, Column extends string> = `_${TableAlias}_${Column}`;
 
-type FieldAlias<
+type ColumnAliases<
 	TableAlias extends string,
-	TableField extends string
-> = `_${TableAlias}_${TableField}`;
+	Columns extends readonly string[]
+> = Columns extends readonly [infer Column extends string, ...infer Tail extends string[]]
+	? [ColumnAlias<TableAlias, Column>, ...ColumnAliases<TableAlias, Tail>]
+	: [];
 
-type FieldAsAlias<
+type ColumnAliasesOn<
 	TableAlias extends string,
-	TableField extends string
-> = `${TableAlias}.${TableField} as ${FieldAlias<TableAlias, TableField>}`;
+	Columns extends readonly string[],
+	OnAlias extends string
+> = Columns extends readonly [infer Column extends string, ...infer Tail extends string[]]
+	? [`${OnAlias}.${ColumnAlias<TableAlias, Column>}`, ...ColumnAliasesOn<TableAlias, Tail, OnAlias>]
+	: [];
 
-type FieldsAsAliases<
+type ColumnAliasExpression<
 	TableAlias extends string,
-	TableFields extends readonly string[]
-> = TableFields extends readonly [infer TableField extends string, ...infer Tail extends string[]]
-	? [FieldAsAlias<TableAlias, TableField>, ...FieldsAsAliases<TableAlias, Tail>]
+	Column extends string
+> = `${TableAlias}.${Column} as ${ColumnAlias<TableAlias, Column>}`;
+
+type ColumnAliasExpressions<
+	TableAlias extends string,
+	Columns extends readonly string[]
+> = Columns extends readonly [infer Column extends string, ...infer Tail extends string[]]
+	? [ColumnAliasExpression<TableAlias, Column>, ...ColumnAliasExpressions<TableAlias, Tail>]
 	: [];

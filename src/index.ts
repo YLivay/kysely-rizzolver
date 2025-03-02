@@ -1,10 +1,5 @@
 export { KyselyRizzolver } from './kysely-rizzolver.js';
-export type {
-	KyAllTableFields as AllTableFields,
-	KyAnyTableField as AnyTableField,
-	KyDB as RizzolverDB,
-	KyTableName as TableName
-} from './kysely-rizzolver.js';
+export type { TableName, AnyTableColumn, AllTableColumns } from './kysely-rizzolver.js';
 
 export {
 	assertIsFetchOneResult,
@@ -52,21 +47,21 @@ export type {
 
 export { MAX_FK_GATHER_DEPTH, ModelFkGatherError } from './fks.js';
 export type {
+	GatherWhereExpression,
 	ModelFkBare,
 	ModelFkGathered,
 	ModelFkInstance,
-	ValidFkDepth,
-	GatherWhereExpression
+	ValidFkDepth
 } from './fks.js';
 
 export type { KyselyRizzolverBuilder } from './kysely-rizzolver-builder.js';
 export type { KyselyRizzolverFkBuilder } from './kysely-rizzolver-fk-builder.js';
 
 export { newSelector } from './selector.js';
-export type { AnySelector, Selector } from './selector.js';
+export type { Selector } from './selector.js';
 
-export { newQueryBuilder } from './query-builder.js';
-export type { AnyQueryBuilder, QueryBuilder } from './query-builder.js';
+export { newQueryContext } from './query-context.js';
+export type { AnyQueryContext, QueryContext } from './query-context.js';
 
 export { newModelCollection } from './model-collection.js';
 export type { ModelCollection } from './model-collection.js';

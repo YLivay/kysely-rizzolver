@@ -9,3 +9,5 @@ package-lock.json
 tsconfig-base.json
 tsconfig-cjs.json
 tsconfig.json
+jest.config.js
+test/

@@ -1,4 +1,3 @@
-import { Selectable } from 'kysely';
 import {
 	assertIsGatherOneResult,
 	assertIsGatherOneXResult,
@@ -14,7 +13,7 @@ import {
 	newGatherSomeResult
 } from './fk-gather-result.js';
 import type { DBWithFk, ModelFkExtractSelectable, ModelFkInstance, ValidFkDepth } from './fks.js';
-import type { KyselyRizzolverFKs } from './kysely-rizzolver.js';
+import type { KyselyRizzolverFKs, TableName } from './kysely-rizzolver.js';
 import { type ModelCollection } from './model-collection.js';
 
 /**
@@ -34,13 +33,13 @@ export function newFkGatherResultFactory<DB, FKDefs extends KyselyRizzolverFKs<D
 		/**
 		 * Creates a new {@link GatherOneResult} instance.
 		 */
-		newGatherOne<K extends keyof DBFk & string, Depth extends ValidFkDepth>(
-			table: K,
+		newGatherOne<Table extends TableName<DBFk>, Depth extends ValidFkDepth>(
+			table: Table,
 			depth: Depth,
-			result: ModelFkInstance<DBFk, K, Depth> | undefined,
+			result: ModelFkInstance<DBFk, Table, Depth> | undefined,
 			models?: ModelCollection<DB>
 		) {
-			return newGatherOneResult<DBFk, K, Depth>(
+			return newGatherOneResult<DBFk, Table, Depth>(
 				table,
 				depth,
 				result,
@@ -55,13 +54,13 @@ export function newFkGatherResultFactory<DB, FKDefs extends KyselyRizzolverFKs<D
 		 * input. I found it is way more convenient to assert the type once in this
 		 * funciton rather than in every caller.
 		 */
-		newGatherOneX<K extends keyof DBFk & string, Depth extends ValidFkDepth>(
-			table: K,
+		newGatherOneX<Table extends TableName<DBFk>, Depth extends ValidFkDepth>(
+			table: Table,
 			depth: Depth,
-			result: ModelFkInstance<DBFk, K, Depth> | undefined,
+			result: ModelFkInstance<DBFk, Table, Depth> | undefined,
 			models?: ModelCollection<DB>
 		) {
-			return newGatherOneXResult<DBFk, K, Depth>(
+			return newGatherOneXResult<DBFk, Table, Depth>(
 				table,
 				depth,
 				result,
@@ -72,13 +71,13 @@ export function newFkGatherResultFactory<DB, FKDefs extends KyselyRizzolverFKs<D
 		/**
 		 * Creates a new {@link GatherSomeResult} instance.
 		 */
-		newGatherSome<K extends keyof DBFk & string, Depth extends ValidFkDepth>(
-			table: K,
+		newGatherSome<Table extends TableName<DBFk>, Depth extends ValidFkDepth>(
+			table: Table,
 			depth: Depth,
-			result: ModelFkInstance<DBFk, K, Depth>[],
+			result: ModelFkInstance<DBFk, Table, Depth>[],
 			models?: ModelCollection<DB>
 		) {
-			return newGatherSomeResult<DBFk, K, Depth>(
+			return newGatherSomeResult<DBFk, Table, Depth>(
 				table,
 				depth,
 				result,
@@ -89,44 +88,44 @@ export function newFkGatherResultFactory<DB, FKDefs extends KyselyRizzolverFKs<D
 		/**
 		 * Checks if a {@link GatherResult} is a {@link GatherOneResult}.
 		 */
-		isGatherOne<K extends keyof DBFk & string, Depth extends ValidFkDepth>(
-			table: K,
+		isGatherOne<Table extends TableName<DBFk>, Depth extends ValidFkDepth>(
+			table: Table,
 			depth: Depth,
 			result: unknown
-		): result is FkGatherOneResult<DBFk, K, Depth> {
+		): result is FkGatherOneResult<DBFk, Table, Depth> {
 			return isGatherOneResult(result) && result.table === table && result.depth === depth;
 		},
 
 		/**
 		 * Checks if a {@link GatherResult} is a {@link GatherOneXResult}.
 		 */
-		isGatherOneX<K extends keyof DBFk & string, Depth extends ValidFkDepth>(
-			table: K,
+		isGatherOneX<Table extends TableName<DBFk>, Depth extends ValidFkDepth>(
+			table: Table,
 			depth: Depth,
 			result: unknown
-		): result is FkGatherOneXResult<DBFk, K, Depth> {
+		): result is FkGatherOneXResult<DBFk, Table, Depth> {
 			return isGatherOneXResult(result) && result.table === table && result.depth === depth;
 		},
 
 		/**
 		 * Checks if a {@link GatherResult} is a {@link GatherSomeResult}.
 		 */
-		isGatherSome<K extends keyof DBFk & string, Depth extends ValidFkDepth>(
-			table: K,
+		isGatherSome<Table extends TableName<DBFk>, Depth extends ValidFkDepth>(
+			table: Table,
 			depth: Depth,
 			result: unknown
-		): result is FkGatherSomeResult<DBFk, K, Depth> {
+		): result is FkGatherSomeResult<DBFk, Table, Depth> {
 			return isGatherSomeResult(result) && result.table === table && result.depth === depth;
 		},
 
 		/**
 		 * Asserts that a {@link GatherResult} is a {@link GatherOneResult}.
 		 */
-		assertIsGatherOne<K extends keyof DBFk & string, Depth extends ValidFkDepth>(
-			table: K,
+		assertIsGatherOne<Table extends TableName<DBFk>, Depth extends ValidFkDepth>(
+			table: Table,
 			depth: Depth,
 			result: unknown
-		): asserts result is FkGatherOneResult<DBFk, K, Depth> {
+		): asserts result is FkGatherOneResult<DBFk, Table, Depth> {
 			assertIsGatherOneResult(result);
 
 			if (result.table !== table) {
@@ -141,11 +140,11 @@ export function newFkGatherResultFactory<DB, FKDefs extends KyselyRizzolverFKs<D
 		/**
 		 * Asserts that a {@link GatherResult} is a {@link GatherOneXResult}.
 		 */
-		assertIsGatherOneX<K extends keyof DBFk & string, Depth extends ValidFkDepth>(
-			table: K,
+		assertIsGatherOneX<Table extends TableName<DBFk>, Depth extends ValidFkDepth>(
+			table: Table,
 			depth: Depth,
 			result: unknown
-		): asserts result is FkGatherOneXResult<DBFk, K, Depth> {
+		): asserts result is FkGatherOneXResult<DBFk, Table, Depth> {
 			assertIsGatherOneXResult(result);
 
 			if (result.table !== table) {
@@ -162,11 +161,11 @@ export function newFkGatherResultFactory<DB, FKDefs extends KyselyRizzolverFKs<D
 		/**
 		 * Asserts that a {@link GatherResult} is a {@link GatherSomeResult}.
 		 */
-		assertIsGatherSome<K extends keyof DBFk & string, Depth extends ValidFkDepth>(
-			table: K,
+		assertIsGatherSome<Table extends TableName<DBFk>, Depth extends ValidFkDepth>(
+			table: Table,
 			depth: Depth,
 			result: unknown
-		): asserts result is FkGatherSomeResult<DBFk, K, Depth> {
+		): asserts result is FkGatherSomeResult<DBFk, Table, Depth> {
 			assertIsGatherSomeResult(result);
 
 			if (result.table !== table) {

@@ -1,26 +1,26 @@
-import { KyselyRizzolverFKs } from './kysely-rizzolver.js';
+import type { KyselyRizzolverFKs, TableName } from './kysely-rizzolver.js';
 import { NumericFields } from './type-helpers.js';
 
 export type FkDefsBuilderCallback<DB, T> = (builder: KyselyRizzolverFkBuilder<DB, {}>) => T;
 
 export type KyselyRizzolverFkBuilder<DB, FKDefs extends KyselyRizzolverFKs<DB> = {}> = {
 	add<
-		FromTable extends keyof DB & string,
-		FromField extends Exclude<NumericFields<DB[FromTable]> & string, 'id'>,
-		ToTable extends keyof DB & string,
-		ToField extends NumericFields<DB[ToTable]> & string,
+		FromTable extends TableName<DB>,
+		FromColumn extends Exclude<NumericFields<DB[FromTable]> & string, 'id'>,
+		ToTable extends TableName<DB>,
+		ToColumn extends NumericFields<DB[ToTable]> & string,
 		FkName extends string,
 		Nullable extends boolean = false
 	>(
 		fromTable: FromTable,
-		fromField: FromField,
+		fromColumn: FromColumn,
 		toTable: ToTable,
-		toField: ToField,
+		toColumn: ToColumn,
 		fkName: FkName,
 		nullable?: Nullable
 	): KyselyRizzolverFkBuilder<
 		DB,
-		FKDefsAddEntry<DB, FKDefs, FromTable, FromField, ToTable, ToField, FkName, Nullable>
+		FKDefsAddEntry<DB, FKDefs, FromTable, FromColumn, ToTable, ToColumn, FkName, Nullable>
 	>;
 
 	build(): FKDefs;
@@ -29,28 +29,28 @@ export type KyselyRizzolverFkBuilder<DB, FKDefs extends KyselyRizzolverFKs<DB> =
 type FKDefsAddEntry<
 	DB,
 	FKDefs extends KyselyRizzolverFKs<DB>,
-	FromTable extends keyof DB & string,
-	FromField extends string,
-	ToTable extends keyof DB & string,
-	ToField extends string,
+	FromTable extends TableName<DB>,
+	FromColumn extends string,
+	ToTable extends TableName<DB>,
+	ToColumn extends string,
 	FkName extends string,
 	Nullable extends boolean
 > = FKDefs & {
 	[K in FromTable]: {
-		[N in FkName]: FKDefsEntry<DB, FromField, ToTable, ToField, Nullable>;
+		[N in FkName]: FKDefsEntry<DB, FromColumn, ToTable, ToColumn, Nullable>;
 	};
 };
 
 export type FKDefsEntry<
 	DB,
-	FromField extends string,
-	ToTable extends keyof DB & string,
-	ToField extends string,
+	FromColumn extends string,
+	ToTable extends TableName<DB>,
+	ToColumn extends string,
 	Nullable extends boolean
 > = {
-	myField: FromField;
+	myColumn: FromColumn;
 	otherTable: ToTable;
-	otherField: ToField;
+	otherColumn: ToColumn;
 	isNullable: Nullable;
 };
 
@@ -59,27 +59,27 @@ export function newKyselyRizzolverFkBuilder<DB, FKDefs extends KyselyRizzolverFK
 ): KyselyRizzolverFkBuilder<DB, FKDefs> {
 	return {
 		add<
-			FromTable extends keyof DB & string,
-			FromField extends Exclude<NumericFields<DB[FromTable]> & string, 'id'>,
-			ToTable extends keyof DB & string,
-			ToField extends NumericFields<DB[ToTable]> & string,
+			FromTable extends TableName<DB>,
+			FromColumn extends Exclude<NumericFields<DB[FromTable]> & string, 'id'>,
+			ToTable extends TableName<DB>,
+			ToColumn extends NumericFields<DB[ToTable]> & string,
 			FkName extends string,
 			Nullable extends boolean = false
 		>(
 			fromTable: FromTable,
-			fromField: FromField,
+			fromColumn: FromColumn,
 			toTable: ToTable,
-			toField: ToField,
+			toColumn: ToColumn,
 			fkName: FkName,
 			nullable?: Nullable
 		) {
 			const defsForTable = (fkDefs[fromTable] ?? {}) as NonNullable<FKDefs[FromTable]>;
 			const fkEntry = {
-				myField: fromField,
+				myColumn: fromColumn,
 				otherTable: toTable,
-				otherField: toField,
+				otherColumn: toColumn,
 				isNullable: nullable ?? false
-			} as FKDefsEntry<DB, FromField, ToTable, ToField, Nullable>;
+			} as FKDefsEntry<DB, FromColumn, ToTable, ToColumn, Nullable>;
 
 			defsForTable[fkName] = fkEntry;
 			fkDefs[fromTable] = defsForTable;

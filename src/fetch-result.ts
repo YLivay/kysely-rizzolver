@@ -1,5 +1,6 @@
 import type { Selectable } from 'kysely';
 import { newModelCollection, type ModelCollection } from './model-collection.js';
+import type { TableName } from './kysely-rizzolver.js';
 
 /**
  * A {@link FetchResult} is a result of a fetch operation. It can be one of
@@ -13,9 +14,12 @@ import { newModelCollection, type ModelCollection } from './model-collection.js'
  */
 export type FetchResult<
 	DB,
-	T extends keyof DB & string,
-	R extends Partial<Selectable<DB[T]>> = Selectable<DB[T]>
-> = FetchOneResult<DB, T, R> | FetchOneXResult<DB, T, R> | FetchSomeResult<DB, T, R>;
+	Table extends TableName<DB>,
+	ResultShape extends Partial<Selectable<DB[Table]>> = Selectable<DB[Table]>
+> =
+	| FetchOneResult<DB, Table, ResultShape>
+	| FetchOneXResult<DB, Table, ResultShape>
+	| FetchSomeResult<DB, Table, ResultShape>;
 
 /**
  * A {@link FetchOneResult} is a result of a fetch operation that is expected to
@@ -23,12 +27,12 @@ export type FetchResult<
  */
 export type FetchOneResult<
 	DB,
-	T extends keyof DB & string,
-	R extends Partial<Selectable<DB[T]>> = Selectable<DB[T]>
+	Table extends TableName<DB>,
+	ResultShape extends Partial<Selectable<DB[Table]>> = Selectable<DB[Table]>
 > = {
 	fetchType: 'fetchOne';
-	table: T;
-	result: R | undefined;
+	table: Table;
+	result: ResultShape | undefined;
 	/**
 	 * The {@link ModelCollection} that contains the fetched models.
 	 */
@@ -38,7 +42,7 @@ export type FetchOneResult<
 	 *
 	 * @throws If the result is null or undefined.
 	 */
-	asFetchOneX(): FetchOneXResult<DB, T, R & {}>;
+	asFetchOneX(): FetchOneXResult<DB, Table, ResultShape & {}>;
 };
 
 /**
@@ -47,18 +51,18 @@ export type FetchOneResult<
  */
 export type FetchOneXResult<
 	DB,
-	T extends keyof DB & string,
-	R extends Partial<Selectable<DB[T]>> = Selectable<DB[T]>
+	Table extends TableName<DB>,
+	ResultShape extends Partial<Selectable<DB[Table]>> = Selectable<DB[Table]>
 > = {
 	fetchType: 'fetchOne';
-	table: T;
-	result: R;
+	table: Table;
+	result: ResultShape;
 	models: ModelCollection<DB>;
 	/**
 	 * Returns self. This is a no-op, but it's here to make it possible to
 	 * cast this object back to a {@link FetchOneXResult}.
 	 */
-	asFetchOneX(): FetchOneXResult<DB, T, R>;
+	asFetchOneX(): FetchOneXResult<DB, Table, ResultShape>;
 };
 
 /**
@@ -67,12 +71,12 @@ export type FetchOneXResult<
  */
 export type FetchSomeResult<
 	DB,
-	T extends keyof DB & string,
-	R extends Partial<Selectable<DB[T]>> = Selectable<DB[T]>
+	Table extends TableName<DB>,
+	ResultShape extends Partial<Selectable<DB[Table]>> = Selectable<DB[Table]>
 > = {
 	fetchType: 'fetchSome';
-	table: T;
-	result: R[];
+	table: Table;
+	result: ResultShape[];
 	models: ModelCollection<DB>;
 };
 
@@ -80,33 +84,33 @@ export type FetchSomeResult<
  * Used to type juggle between {@link FetchResult} and its subtypes.
  */
 export type AsFetchOneResult<T extends FetchResult<any, string, Selectable<any>>> =
-	T extends FetchResult<infer DB, infer T, infer R> ? FetchOneResult<DB, T, R> : never;
+	T extends FetchResult<infer DB, infer T2, infer R> ? FetchOneResult<DB, T2, R> : never;
 
 /**
  * Used to type juggle between {@link FetchResult} and its subtypes.
  */
 export type AsFetchOneXResult<T extends FetchResult<any, string, Selectable<any>>> =
-	T extends FetchResult<infer DB, infer T, infer R> ? FetchOneXResult<DB, T, R> : never;
+	T extends FetchResult<infer DB, infer T2, infer R> ? FetchOneXResult<DB, T2, R> : never;
 
 /**
  * Used to type juggle between {@link FetchResult} and its subtypes.
  */
 export type AsFetchSomeResult<T extends FetchResult<any, string, Selectable<any>>> =
-	T extends FetchResult<infer DB, infer T, infer R> ? FetchSomeResult<DB, T, R> : never;
+	T extends FetchResult<infer DB, infer T2, infer R> ? FetchSomeResult<DB, T2, R> : never;
 
 /**
  * Creates a new {@link FetchOneResult} instance.
  */
 export function newFetchOneResult<
 	DB,
-	T extends keyof DB & string,
-	R extends Partial<Selectable<DB[T]>>
->(table: T, result: R | undefined, models?: ModelCollection<DB>) {
-	const ref = { value: null as any as FetchOneXResult<DB, T, R> };
+	Table extends TableName<DB>,
+	ResultShape extends Partial<Selectable<DB[Table]>>
+>(table: Table, result: ResultShape | undefined, models?: ModelCollection<DB>) {
+	const ref = { value: null as unknown as FetchOneXResult<DB, Table, ResultShape> };
 
 	models ??= newModelCollection<DB>();
 
-	const me: FetchOneResult<DB, T, R> = {
+	const me: FetchOneResult<DB, Table, ResultShape> = {
 		fetchType: 'fetchOne' as const,
 		table,
 		result,
@@ -120,7 +124,7 @@ export function newFetchOneResult<
 		}
 	};
 
-	ref.value = me as FetchOneXResult<DB, T, R>;
+	ref.value = me as FetchOneXResult<DB, Table, ResultShape>;
 
 	return me;
 }
@@ -134,18 +138,18 @@ export function newFetchOneResult<
  */
 export function newFetchOneXResult<
 	DB,
-	T extends keyof DB & string,
-	R extends Partial<Selectable<DB[T]>>
->(table: T, result: R | undefined, models?: ModelCollection<DB>) {
+	Table extends TableName<DB>,
+	ResultShape extends Partial<Selectable<DB[Table]>>
+>(table: Table, result: ResultShape | undefined, models?: ModelCollection<DB>) {
 	if (!result) {
 		throw new Error('Expected a fetchOneX result');
 	}
 
 	models ??= newModelCollection<DB>();
 
-	const ref = { value: null as any as FetchOneXResult<DB, T, R> };
+	const ref = { value: null as unknown as FetchOneXResult<DB, Table, ResultShape> };
 
-	const me: FetchOneXResult<DB, T, R> = {
+	const me: FetchOneXResult<DB, Table, ResultShape> = {
 		fetchType: 'fetchOne' as const,
 		table,
 		result,
@@ -165,9 +169,9 @@ export function newFetchOneXResult<
  */
 export function newFetchSomeResult<
 	DB,
-	T extends keyof DB & string,
-	R extends Partial<Selectable<DB[T]>>
->(table: T, result: R[], models?: ModelCollection<DB>) {
+	Table extends TableName<DB>,
+	ResultShape extends Partial<Selectable<DB[Table]>>
+>(table: Table, result: ResultShape[], models?: ModelCollection<DB>) {
 	models ??= newModelCollection<DB>();
 
 	return {
@@ -175,7 +179,7 @@ export function newFetchSomeResult<
 		table,
 		result,
 		models
-	} as FetchSomeResult<DB, T, R>;
+	} as FetchSomeResult<DB, Table, ResultShape>;
 }
 
 export function isFetchResult(result: unknown): result is FetchResult<any, any, any> {
@@ -200,9 +204,11 @@ export function isFetchResult(result: unknown): result is FetchResult<any, any, 
  */
 export function isFetchOneResult<
 	DB,
-	T extends keyof DB & string,
-	R extends Partial<Selectable<DB[T]>>
->(value: FetchOneResult<DB, T, R> | FetchOneXResult<DB, T, R>): value is typeof value;
+	Table extends TableName<DB>,
+	ResultShape extends Partial<Selectable<DB[Table]>>
+>(
+	value: FetchOneResult<DB, Table, ResultShape> | FetchOneXResult<DB, Table, ResultShape>
+): value is typeof value;
 export function isFetchOneResult(
 	value: unknown
 ): value is FetchOneResult<any, string, Selectable<any>>;
@@ -217,14 +223,14 @@ export function isFetchOneResult(
  */
 export function isFetchOneXResult<
 	DB,
-	T extends keyof DB & string,
-	R extends Partial<Selectable<DB[T]>>
->(value: FetchOneResult<DB, T, R>): value is FetchOneXResult<DB, T, R>;
+	Table extends TableName<DB>,
+	ResultShape extends Partial<Selectable<DB[Table]>>
+>(value: FetchOneResult<DB, Table, ResultShape>): value is FetchOneXResult<DB, Table, ResultShape>;
 export function isFetchOneXResult<
 	DB,
-	T extends keyof DB & string,
-	R extends Partial<Selectable<DB[T]>>
->(value: FetchOneXResult<DB, T, R>): value is typeof value;
+	Table extends TableName<DB>,
+	ResultShape extends Partial<Selectable<DB[Table]>>
+>(value: FetchOneXResult<DB, Table, ResultShape>): value is typeof value;
 export function isFetchOneXResult(
 	value: unknown
 ): value is FetchOneXResult<any, string, Selectable<any>>;
@@ -244,9 +250,9 @@ export function isFetchOneXResult(
  */
 export function isFetchSomeResult<
 	DB,
-	T extends keyof DB & string,
-	R extends Partial<Selectable<DB[T]>>
->(value: FetchSomeResult<DB, T, R>): value is typeof value;
+	Table extends TableName<DB>,
+	ResultShape extends Partial<Selectable<DB[Table]>>
+>(value: FetchSomeResult<DB, Table, ResultShape>): value is typeof value;
 export function isFetchSomeResult(
 	value: unknown
 ): value is FetchSomeResult<any, string, Selectable<any>>;
