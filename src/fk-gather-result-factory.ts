@@ -1,3 +1,4 @@
+import { Selectable } from 'kysely';
 import {
 	assertIsGatherOneResult,
 	assertIsGatherOneXResult,
@@ -12,7 +13,14 @@ import {
 	newGatherOneXResult,
 	newGatherSomeResult
 } from './fk-gather-result.js';
-import type { DBWithFk, ModelFkExtractSelectable, ModelFkInstance, ValidFkDepth } from './fks.js';
+import {
+	newGatheredModelObj,
+	type DBWithFk,
+	type ModelFkExtractSelectable,
+	type ModelFkInstance,
+	type OmitFks,
+	type ValidFkDepth
+} from './fks.js';
 import type { KyselyRizzolverFKs, TableName } from './kysely-rizzolver.js';
 import { type ModelCollection } from './model-collection.js';
 
@@ -175,6 +183,14 @@ export function newFkGatherResultFactory<DB, FKDefs extends KyselyRizzolverFKs<D
 			if (result.depth !== depth) {
 				throw new Error(`Expected a gatherSome result for table ${table} of depth ${depth}`);
 			}
+		},
+
+		newModelObj<
+			Table extends TableName<DBFk>,
+			Depth extends ValidFkDepth,
+			Model extends Omit<ModelFkInstance<DBFk, Table, Depth>, '__fkDepth' | '__table'>
+		>(table: Table, depth: Depth, model: Model) {
+			return newGatheredModelObj<DBFk, Table, Depth, Model>(table, depth, model);
 		},
 
 		/**

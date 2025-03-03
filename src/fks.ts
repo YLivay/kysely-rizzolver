@@ -112,6 +112,15 @@ export type ModelFkExtractSelectable<DB, Model> = Model extends ModelFkInstance<
 	? null
 	: never;
 
+export function newGatheredModelObj<
+	DBFk,
+	Table extends TableName<DBFk>,
+	Depth extends ValidFkDepth,
+	Model extends Omit<ModelFkInstance<DBFk, Table, Depth>, '__fkDepth' | '__table'>
+>(table: Table, depth: Depth, model: Model): ModelFkInstance<DBFk, Table, Depth> {
+	return { __fkDepth: depth, __table: table, ...model } as any;
+}
+
 /**
  * A database schema `DB` with FK columns populated according to `FKDefs`.
  *
@@ -212,7 +221,7 @@ export async function gatherModelFks<
 			table,
 			baseModel,
 			collection,
-			MAX_FK_GATHER_DEPTH,
+			depth,
 			onInvalidModel
 		);
 		return gatheredModel as ModelFkInstance<DBWithFk<DB, FKDefs>, Table, Depth> | null;
@@ -323,7 +332,7 @@ function _baseToGatheredModel(
 
 			gatheredModel[fkName] = otherGatheredModel;
 		} else {
-			gatheredModel[fkName] = undefined;
+			gatheredModel[fkName] = null;
 		}
 	}
 
