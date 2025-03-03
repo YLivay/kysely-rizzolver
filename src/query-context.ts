@@ -159,14 +159,14 @@ export interface QueryContext<
 	 *   // => [
 	 *   //      {
 	 *   //        row: { id: 1, first_name: 'John', last_name: 'Doe' },
-	 *   //        selectors: {
+	 *   //        selectable: {
 	 *   //          u: { id: 1, first_name: 'John', last_name: 'Doe' },
 	 *   //          a: { id: 10, street: '123 Main St', city: 'Springfield' }
 	 *   //        }
 	 *   //      },
 	 *   //      {
 	 *   //        row: { id: 2, first_name: 'Jane', last_name: 'Smith' },
-	 *   //        selectors: {
+	 *   //        selectable: {
 	 *   //          u: { id: 2, first_name: 'Jane', last_name: 'Smith' },
 	 *   //          a: undefined, // Jane has no address
 	 *   //        }
@@ -289,7 +289,7 @@ export function newQueryContext<KY extends KyselyRizzolverBase<any, any, any>>(
 
 				const result: {
 					row: Row;
-					selectors: Record<keyof typeof selectors, any>;
+					selectable: Record<keyof typeof selectors, any>;
 				}[] = [];
 
 				for (let i = 0; i < rows.length; i++) {
@@ -298,7 +298,7 @@ export function newQueryContext<KY extends KyselyRizzolverBase<any, any, any>>(
 					for (const [alias, selectorResult] of Object.entries(selectorResults)) {
 						selectedModels[alias] = (selectorResult as any)[i].model;
 					}
-					result.push({ row, selectors: selectedModels });
+					result.push({ row, selectable: selectedModels });
 				}
 
 				return <Result<KY, typeof selectors, Row>>{
@@ -308,21 +308,21 @@ export function newQueryContext<KY extends KyselyRizzolverBase<any, any, any>>(
 					newFetchOneResult<K extends keyof typeof selectors>(selectorAlias: K) {
 						return newFetchOneResult(
 							selectors[selectorAlias].table.name,
-							(result.length ? result[0] : undefined)?.selectors[selectorAlias],
+							(result.length ? result[0] : undefined)?.selectable[selectorAlias],
 							modelCollection
 						);
 					},
 					newFetchOneXResult<K extends keyof typeof selectors>(selectorAlias: K) {
 						return newFetchOneXResult(
 							selectors[selectorAlias].table.name,
-							(result.length ? result[0] : undefined)?.selectors[selectorAlias],
+							(result.length ? result[0] : undefined)?.selectable[selectorAlias],
 							modelCollection
 						);
 					},
 					newFetchSomeResult<K extends keyof typeof selectors>(selectorAlias: K) {
 						return newFetchSomeResult(
 							selectors[selectorAlias].table.name,
-							result.map((r) => r.selectors[selectorAlias]).filter((r) => !!r),
+							result.map((r) => r.selectable[selectorAlias]).filter((r) => !!r),
 							modelCollection
 						);
 					}
@@ -400,14 +400,14 @@ type Result<
 	first:
 		| {
 				row: Row;
-				selectors: {
+				selectable: {
 					[k in keyof T]: ReturnType<T[k]['parse']>[number]['model'];
 				};
 		  }
 		| undefined;
 	rows: {
 		row: Row;
-		selectors: { [k in keyof T]: ReturnType<T[k]['parse']>[number]['model'] };
+		selectable: { [k in keyof T]: ReturnType<T[k]['parse']>[number]['model'] };
 	}[];
 	models: ModelCollection<KyselyRizzolver.ExtractDB<KY>>;
 	newFetchOneResult<K extends keyof T>(

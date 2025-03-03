@@ -206,7 +206,7 @@ export async function gatherModelFks<
 	const collection = rizzult.models;
 	modelCollection?.addCollection(collection);
 	const result = rizzult.rows.map((row) => {
-		const baseModel = row.selectors[table]!;
+		const baseModel = row.selectable[table]!;
 		const gatheredModel = _baseToGatheredModel(
 			fkDefs,
 			table,

@@ -116,13 +116,13 @@ builder that was used to create the query, as such:
 const results = await qb.run(rows);
 
 // To get the user model
-const first = results.first?.selectors.u;
+const first = results.first?.selectable.u;
 
 // To get the first user's avatar image url
-const avatarUrl = results.first?.selectors.i?.url;
+const avatarUrl = results.first?.selectable.i?.url;
 
 // To collect all avatar image urls
-const avatarUrls = results.rows.map((row) => row.selectors.i?.url);
+const avatarUrls = results.rows.map((row) => row.selectable.i?.url);
 ```
 
 To make it easier to work with the results and pass them around, accept them as

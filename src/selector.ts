@@ -178,7 +178,7 @@ export function newSelector<
 		const model = {} as any;
 		for (const col of columnNames) {
 			const colAlias = `_${tableAlias}_${col}` as const;
-			model[col] = result[colAlias] ?? undefined;
+			model[col] = result[colAlias];
 		}
 		return model;
 	}
@@ -279,3 +279,27 @@ type ColumnAliasExpressions<
 > = Columns extends readonly [infer Column extends string, ...infer Tail extends string[]]
 	? [ColumnAliasExpression<TableAlias, Column>, ...ColumnAliasExpressions<TableAlias, Tail>]
 	: [];
+
+/**
+ * A type that represents a {@link Selectable}, but with the columns being
+ * aliased the way a {@link Selector} expects them when parsing Kysely Rizzolver
+ * query results.
+ *
+ * For example:
+ * ```
+ * // The following Selectable...
+ * const user: Selectable<User> = {
+ *  id: 1,
+ *  name: 'Alice'
+ * };
+ *
+ * // Would be represented as such in the raw query result rows.
+ * const rawUser: ZSelectable<User, 'u'> = {
+ *  _u_id: 1,
+ *  _u_name: 'Alice'
+ * };
+ * ```
+ */
+export type Zelectable<T, Alias extends string> = Selectable<{
+	[K in keyof T as K extends string ? `_${Alias}_${K}` : K]: T[K];
+}>;

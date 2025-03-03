@@ -60,14 +60,14 @@ export const commonDbRizzolver = KyselyRizzolver.builder<CommonDB>()
 export async function commonDbInit(db: Kysely<any>) {
 	await db.schema
 		.createTable('user')
-		.addColumn('id', 'serial', (col) => col.primaryKey())
+		.addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
 		.addColumn('name', 'text', (col) => col.notNull())
 		.addColumn('avatar_img_id', 'integer', (col) => col.references('media_item.id'))
 		.execute();
 
 	await db.schema
 		.createTable('media_item')
-		.addColumn('id', 'serial', (col) => col.primaryKey())
+		.addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
 		.addColumn('width', 'integer', (col) => col.notNull())
 		.addColumn('height', 'integer', (col) => col.notNull())
 		.addColumn('url', 'text', (col) => col.notNull())
@@ -75,7 +75,7 @@ export async function commonDbInit(db: Kysely<any>) {
 
 	await db.schema
 		.createTable('post')
-		.addColumn('id', 'serial', (col) => col.primaryKey())
+		.addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
 		.addColumn('author_id', 'integer', (col) => col.notNull().references('user.id'))
 		.addColumn('title', 'text', (col) => col.notNull())
 		.addColumn('description', 'text')
@@ -84,13 +84,13 @@ export async function commonDbInit(db: Kysely<any>) {
 
 	await db.schema
 		.createTable('topic')
-		.addColumn('id', 'serial', (col) => col.primaryKey())
+		.addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
 		.addColumn('name', 'text', (col) => col.notNull())
 		.execute();
 
 	await db.schema
 		.createTable('post_topic')
-		.addColumn('id', 'serial', (col) => col.primaryKey())
+		.addColumn('id', 'integer', (col) => col.primaryKey().autoIncrement())
 		.addColumn('post_id', 'integer', (col) => col.notNull().references('post.id'))
 		.addColumn('topic_id', 'integer', (col) => col.notNull().references('topic.id'))
 		.execute();

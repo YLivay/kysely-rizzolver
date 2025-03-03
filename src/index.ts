@@ -58,7 +58,7 @@ export type { KyselyRizzolverBuilder } from './kysely-rizzolver-builder.js';
 export type { KyselyRizzolverFkBuilder } from './kysely-rizzolver-fk-builder.js';
 
 export { newSelector } from './selector.js';
-export type { Selector } from './selector.js';
+export type { Selector, Zelectable } from './selector.js';
 
 export { newQueryContext } from './query-context.js';
 export type { AnyQueryContext, QueryContext } from './query-context.js';
