@@ -185,9 +185,11 @@ export interface QueryContext<
 	 *     .newFetchOneResult('u'); // => FetchOneResult<DB, 'user', Selectable<User>>
 	 * ```
 	 */
-	run<Row extends Record<string, unknown>>(rows: Row[]): DeferredResult<KY, Selectors, Row>;
 	run<Row extends Record<string, unknown>>(
-		callback: (qb: this) => Promise<Row[]>
+		rows: Row[] | Promise<Row[]>
+	): DeferredResult<KY, Selectors, Row>;
+	run<Row extends Record<string, unknown>>(
+		callback: (qb: this) => Row[] | Promise<Row[]>
 	): DeferredResult<KY, Selectors, Row>;
 }
 
@@ -267,10 +269,16 @@ export function newQueryContext<KY extends KyselyRizzolverBase<any, any, any>>(
 		},
 
 		run<Row extends Record<string, unknown>>(
-			rowsOrCallback: Row[] | ((qb: QueryContext<KY, typeof selectors>) => Promise<Row[]>)
+			rowsOrCallback:
+				| Row[]
+				| Promise<Row[]>
+				| ((qb: QueryContext<KY, typeof selectors>) => Row[] | Promise<Row[]>)
 		) {
 			const promise: DeferredResult<KY, typeof selectors, Row> = (async () => {
-				const rows = Array.isArray(rowsOrCallback) ? rowsOrCallback : await rowsOrCallback(this);
+				const rows = await (typeof rowsOrCallback === 'function'
+					? rowsOrCallback(this)
+					: rowsOrCallback);
+
 				const modelCollection = newModelCollection<KyselyRizzolver.ExtractDB<KY>>();
 
 				const selectorResults = {} as any;
@@ -306,6 +314,10 @@ export function newQueryContext<KY extends KyselyRizzolverBase<any, any, any>>(
 					rows: result,
 					models: modelCollection,
 					newFetchOneResult<K extends keyof typeof selectors>(selectorAlias: K) {
+						if (!(selectorAlias in selectors)) {
+							throw new Error(`Table "${selectorAlias}" not found in this query context`);
+						}
+
 						return newFetchOneResult(
 							selectors[selectorAlias].table.name,
 							(result.length ? result[0] : undefined)?.selectable[selectorAlias],
@@ -313,6 +325,10 @@ export function newQueryContext<KY extends KyselyRizzolverBase<any, any, any>>(
 						);
 					},
 					newFetchOneXResult<K extends keyof typeof selectors>(selectorAlias: K) {
+						if (!(selectorAlias in selectors)) {
+							throw new Error(`Table "${selectorAlias}" not found in this query context`);
+						}
+
 						return newFetchOneXResult(
 							selectors[selectorAlias].table.name,
 							(result.length ? result[0] : undefined)?.selectable[selectorAlias],
@@ -320,6 +336,10 @@ export function newQueryContext<KY extends KyselyRizzolverBase<any, any, any>>(
 						);
 					},
 					newFetchSomeResult<K extends keyof typeof selectors>(selectorAlias: K) {
+						if (!(selectorAlias in selectors)) {
+							throw new Error(`Table "${selectorAlias}" not found in this query context`);
+						}
+
 						return newFetchSomeResult(
 							selectors[selectorAlias].table.name,
 							result.map((r) => r.selectable[selectorAlias]).filter((r) => !!r),

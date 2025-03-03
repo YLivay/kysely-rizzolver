@@ -276,6 +276,120 @@ describe('QueryContext', () => {
 			});
 		});
 
+		it('parses rows from a promise', async () => {
+			const expectRows: Zelectable<User, 'u'>[] = [
+				{
+					_u_id: 1,
+					_u_name: 'Alice',
+					_u_avatar_img_id: null
+				},
+				{
+					_u_id: 2,
+					_u_name: 'Bob',
+					_u_avatar_img_id: 1
+				}
+			];
+
+			const result = await rizzolver
+				.newQueryContext()
+				.add('user', 'u')
+				.run(Promise.resolve(expectRows));
+
+			expect(result.rows).toHaveLength(2);
+			expect(result.rows[0].row).toEqual(expectRows[0]);
+			expect(result.rows[1].row).toEqual(expectRows[1]);
+			expect(result.rows[0].selectable).toMatchObject({
+				u: {
+					id: 1,
+					name: 'Alice',
+					avatar_img_id: null
+				}
+			});
+			expect(result.rows[1].selectable).toMatchObject({
+				u: {
+					id: 2,
+					name: 'Bob',
+					avatar_img_id: 1
+				}
+			});
+		});
+
+		it('parses rows from a callback', async () => {
+			const expectRows: Zelectable<User, 'u'>[] = [
+				{
+					_u_id: 1,
+					_u_name: 'Alice',
+					_u_avatar_img_id: null
+				},
+				{
+					_u_id: 2,
+					_u_name: 'Bob',
+					_u_avatar_img_id: 1
+				}
+			];
+
+			const result = await rizzolver
+				.newQueryContext()
+				.add('user', 'u')
+				.run(() => expectRows);
+
+			expect(result.rows).toHaveLength(2);
+			expect(result.rows[0].row).toEqual(expectRows[0]);
+			expect(result.rows[1].row).toEqual(expectRows[1]);
+			expect(result.rows[0].selectable).toMatchObject({
+				u: {
+					id: 1,
+					name: 'Alice',
+					avatar_img_id: null
+				}
+			});
+			expect(result.rows[1].selectable).toMatchObject({
+				u: {
+					id: 2,
+					name: 'Bob',
+					avatar_img_id: 1
+				}
+			});
+		});
+
+		it('parses rows from an async callback', async () => {
+			const expectRows: Zelectable<User, 'u'>[] = [
+				{
+					_u_id: 1,
+					_u_name: 'Alice',
+					_u_avatar_img_id: null
+				},
+				{
+					_u_id: 2,
+					_u_name: 'Bob',
+					_u_avatar_img_id: 1
+				}
+			];
+
+			const result = await rizzolver
+				.newQueryContext()
+				.add('user', 'u')
+				.run(async () => expectRows);
+
+			expect(result.rows).toHaveLength(2);
+			expect(result.rows[0].row).toEqual(expectRows[0]);
+			expect(result.rows[1].row).toEqual(expectRows[1]);
+			expect(result.rows[0].selectable).toMatchObject({
+				u: {
+					id: 1,
+					name: 'Alice',
+					avatar_img_id: null
+				}
+			});
+			expect(result.rows[1].selectable).toMatchObject({
+				u: {
+					id: 2,
+					name: 'Bob',
+					avatar_img_id: 1
+				}
+			});
+		});
+
 		it('collects models into a ModelCollection', async () => {
 			const expectRows: (Zelectable<User, 'u'> & Partial<Zelectable<MediaItem, 'mi'>>)[] = [
 				{
@@ -626,6 +740,48 @@ describe('QueryContext', () => {
 			// Ensure that the model collection is empty
 			const models = result.models.get();
 			expect(models).toEqual({});
+		});
+
+		it('throws when instantiating a fetchOne with an invalid alias', async () => {
+			const expectRow: Zelectable<User, 'u'> = {
+				_u_id: 1,
+				_u_name: 'Alice',
+				_u_avatar_img_id: null
+			};
+
+			const result = await rizzolver.newQueryContext().add('user', 'u').run([expectRow]);
+
+			expect(() => result.newFetchOneResult('non_existent' as any)).toThrow(
+				'Table "non_existent" not found in this query context'
+			);
+		});
+
+		it('throws when instantiating a fetchOneX with an invalid alias', async () => {
+			const expectRow: Zelectable<User, 'u'> = {
+				_u_id: 1,
+				_u_name: 'Alice',
+				_u_avatar_img_id: null
+			};
+
+			const result = await rizzolver.newQueryContext().add('user', 'u').run([expectRow]);
+
+			expect(() => result.newFetchOneXResult('non_existent' as any)).toThrow(
+				'Table "non_existent" not found in this query context'
+			);
+		});
+
+		it('throws when instantiating a fetchSome with an invalid alias', async () => {
+			const expectRow: Zelectable<User, 'u'> = {
+				_u_id: 1,
+				_u_name: 'Alice',
+				_u_avatar_img_id: null
+			};
+
+			const result = await rizzolver.newQueryContext().add('user', 'u').run([expectRow]);
+
+			expect(() => result.newFetchSomeResult('non_existent' as any)).toThrow(
+				'Table "non_existent" not found in this query context'
+			);
 		});
 
 		it('result.first === result.rows[0]', async () => {
