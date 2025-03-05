@@ -35,7 +35,9 @@ export interface Selector<
 	 *  // => type would be { row: Row, model: Selectable<User> | undefined }[]
 	 * ```
 	 */
-	parse<Row extends Record<string, unknown>>(rows: Row[]): SelectorResult<KY, Row, Table, Columns>;
+	parse<Row extends Record<string, unknown>>(
+		rows: (Row | null | undefined)[]
+	): SelectorResult<KY, Row, Table, Columns>;
 }
 
 interface SelectorData<
@@ -150,7 +152,23 @@ export function newSelector<
 		Table
 	>[] = KyselyRizzolver.AllTableColumns<KY, Table>
 >(rizzolver: KY, tableName: Table, tableAlias: Alias, columns?: Columns) {
+	if (!(tableName in rizzolver._types.tableToColumns)) {
+		throw new Error(`Table '${tableName}' not found in schema`);
+	}
+
+	if (!tableAlias) {
+		throw new Error(`Invalid alias '${tableAlias}'`);
+	}
+
 	const columnNames = (columns ?? rizzolver._types.tableToColumns[tableName]) as Columns;
+
+	// Make sure all column names that were given exist for the table.
+	for (const col of columnNames) {
+		if (!rizzolver._types.tableToColumns[tableName].includes(col as any)) {
+			throw new Error(`Column "${col}" does not exist in table "${tableName}"`);
+		}
+	}
+
 	type MySelectable = Selectable<Pick<KyselyRizzolver.ExtractDB<KY>[Table], Columns[number]>>;
 
 	const tableAsAlias = `${tableName} as ${tableAlias}` as const;
@@ -162,7 +180,9 @@ export function newSelector<
 		(col) => `${tableAlias}.${col} as _${tableAlias}_${col}` as const
 	) as ColumnAliasExpressions<Alias, Columns>;
 
-	function _rowToModel(result: Record<string, unknown> | undefined): MySelectable | undefined {
+	function _rowToModel(
+		result: Record<string, unknown> | null | undefined
+	): MySelectable | undefined {
 		// TODO: this is wrong, we don't necessarily fetch the id column.
 		//
 		// perhaps the better way is to check if the result has only undefined
@@ -217,8 +237,8 @@ export function newSelector<
 				}
 			};
 		},
-		parse<Row extends Record<string, unknown>>(rows: Row[]) {
-			const data: { row: Row; model: MySelectable | undefined }[] = [];
+		parse<Row extends Record<string, unknown>>(rows: (Row | null | undefined)[]) {
+			const data: { row: Row | null | undefined; model: MySelectable | undefined }[] = [];
 
 			for (const row of rows) {
 				const model = _rowToModel(row);
@@ -241,7 +261,7 @@ export type SelectorResult<
 		Table
 	>[] = KyselyRizzolver.AllTableColumns<KY, Table>
 > = {
-	row: Row;
+	row: Row | null | undefined;
 	model: Selectable<Pick<KyselyRizzolver.ExtractDB<KY>[Table], Columns[number]>> | undefined;
 }[];
 

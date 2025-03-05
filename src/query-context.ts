@@ -235,26 +235,30 @@ export function newQueryContext<KY extends KyselyRizzolverBase<any, any, any>>(
 		add<
 			Table extends KyselyRizzolver.TableName<KY>,
 			Alias extends string,
-			Keys extends readonly KyselyRizzolver.AnyTableColumn<
+			Columns extends readonly KyselyRizzolver.AnyTableColumn<
 				KY,
 				Table
 			>[] = KyselyRizzolver.AllTableColumns<KY, Table>
-		>(selectorOrTable: Table | Selector<KY, Table, Alias, Keys>, alias?: Alias, keys?: Keys) {
-			let selector: Selector<KY, Table, Alias, Keys>;
+		>(
+			selectorOrTable: Table | Selector<KY, Table, Alias, Columns>,
+			alias?: Alias,
+			columns?: Columns
+		) {
+			let selector: Selector<KY, Table, Alias, Columns>;
 			if (typeof selectorOrTable === 'string') {
 				if (!alias) {
-					throw new Error('Must provide an alias when calling QueryContext.add with a table name');
+					throw new Error('Must provide alias when calling QueryContext.add with a table name');
 				}
 				selector = newSelector(
 					rizzolver,
 					selectorOrTable,
 					alias,
-					(keys ?? rizzolver._types.tableToColumns[selectorOrTable]) as Keys
+					(columns ?? rizzolver._types.tableToColumns[selectorOrTable]) as Columns
 				);
 			} else {
-				if (alias || keys) {
+				if (alias || columns) {
 					throw new Error(
-						'Must not provide an alias or keys when calling QueryContext.add with a selector'
+						'Must not provide alias or columns when calling QueryContext.add with a selector'
 					);
 				}
 				selector = selectorOrTable;

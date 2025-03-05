@@ -29,9 +29,33 @@ describe('QueryContext', () => {
 			});
 		});
 
+		it('adds using a selector instead of table + alias', async () => {
+			const selector = rizzolver.newSelector('user', 'u');
+			const qc = rizzolver.newQueryContext().add(selector);
+			expect(qc.numSelectors).toBe(1);
+			expect(qc.selectors).toMatchObject({
+				u: expect.any(Object)
+			});
+		});
+
 		it('throws an error when trying to add multiple tables with the same alias', async () => {
 			const qc = rizzolver.newQueryContext().add('user', 'u');
 			expect(() => qc.add('media_item', 'u')).toThrow('Alias "u" is already in use');
+		});
+
+		it('throws an error when providing a table name but no alias', async () => {
+			const qc = rizzolver.newQueryContext();
+			expect(() => (qc as any).add('user')).toThrow(
+				'Must provide alias when calling QueryContext.add with a table name'
+			);
+		});
+
+		it('throws an error when providing a selector and an alias / column names', async () => {
+			const selector = rizzolver.newSelector('user', 'u');
+			const qc = rizzolver.newQueryContext();
+			expect(() => (qc as any).add(selector, 'u')).toThrow(
+				'Must not provide alias or columns when calling QueryContext.add with a selector'
+			);
 		});
 	});
 
@@ -556,6 +580,43 @@ describe('QueryContext', () => {
 			expect(models).toEqual({});
 		});
 
+		it('instantiates a fetchOne result directly from the promise object', async () => {
+			const expectRow: Zelectable<User, 'u'> = {
+				_u_id: 1,
+				_u_name: 'Alice',
+				_u_avatar_img_id: null
+			};
+
+			const fetchOne = await rizzolver
+				.newQueryContext()
+				.add('user', 'u')
+				.run([expectRow])
+				.newFetchOneResult('u');
+
+			expect(fetchOne).toMatchObject({
+				fetchType: 'fetchOne',
+				table: 'user',
+				result: {
+					id: 1,
+					name: 'Alice',
+					avatar_img_id: null
+				},
+				asFetchOneX: expect.any(Function)
+			});
+
+			// Ensure that the model collection is populated
+			const models = fetchOne.models.get();
+			expect(models).toEqual({
+				user: {
+					1: {
+						id: 1,
+						name: 'Alice',
+						avatar_img_id: null
+					}
+				}
+			});
+		});
+
 		it('instantiates a fetchOneX result with one row', async () => {
 			const expectRow: Zelectable<User, 'u'> = {
 				_u_id: 1,
@@ -641,6 +702,43 @@ describe('QueryContext', () => {
 			// Ensure that the model collection is empty
 			const models = result.models.get();
 			expect(models).toEqual({});
+		});
+
+		it('instantiates a fetchOneX result directly from the promise object', async () => {
+			const expectRow: Zelectable<User, 'u'> = {
+				_u_id: 1,
+				_u_name: 'Alice',
+				_u_avatar_img_id: null
+			};
+
+			const fetchOneX = await rizzolver
+				.newQueryContext()
+				.add('user', 'u')
+				.run([expectRow])
+				.newFetchOneXResult('u');
+
+			expect(fetchOneX).toMatchObject({
+				fetchType: 'fetchOne',
+				table: 'user',
+				result: {
+					id: 1,
+					name: 'Alice',
+					avatar_img_id: null
+				},
+				asFetchOneX: expect.any(Function)
+			});
+
+			// Ensure that the model collection is populated
+			const models = fetchOneX.models.get();
+			expect(models).toEqual({
+				user: {
+					1: {
+						id: 1,
+						name: 'Alice',
+						avatar_img_id: null
+					}
+				}
+			});
 		});
 
 		it('instantiates a fetchSome result with one row', async () => {
@@ -740,6 +838,44 @@ describe('QueryContext', () => {
 			// Ensure that the model collection is empty
 			const models = result.models.get();
 			expect(models).toEqual({});
+		});
+
+		it('instantiates a fetchSome result directly from the promise object', async () => {
+			const expectRow: Zelectable<User, 'u'> = {
+				_u_id: 1,
+				_u_name: 'Alice',
+				_u_avatar_img_id: null
+			};
+
+			const fetchSome = await rizzolver
+				.newQueryContext()
+				.add('user', 'u')
+				.run([expectRow])
+				.newFetchSomeResult('u');
+
+			expect(fetchSome).toMatchObject({
+				fetchType: 'fetchSome',
+				table: 'user',
+				result: [
+					{
+						id: 1,
+						name: 'Alice',
+						avatar_img_id: null
+					}
+				]
+			});
+
+			// Ensure that the model collection is populated
+			const models = fetchSome.models.get();
+			expect(models).toEqual({
+				user: {
+					1: {
+						id: 1,
+						name: 'Alice',
+						avatar_img_id: null
+					}
+				}
+			});
 		});
 
 		it('throws when instantiating a fetchOne with an invalid alias', async () => {
