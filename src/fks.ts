@@ -154,7 +154,8 @@ export type GatherOpts<DB, Depth extends ValidFkDepth> = {
 	 * - `null` - puts `null` values in the result array. This is useful if you
 	 *   want to match the input array to the output array by index while still
 	 *   indicating that a model is invalid.
-	 * - `keep` - keeps the invalid model in the result array.
+	 * - `keep` - keeps the invalid model in the result array. Missing FKs will
+	 *   have null values.
 	 *
 	 * An invalid model is a model that has an FK column that is unexpectedly
 	 * missing.
